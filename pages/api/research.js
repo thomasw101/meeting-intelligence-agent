@@ -5,7 +5,7 @@ export const config = {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { targetName, targetCompany, linkedinUrl, companyUrl, calibration } = req.body;
+  const { targetName, targetCompany, linkedinUrl, companyUrl, calibration, confirmed } = req.body;
 
   if (!targetName || !targetCompany) {
     return res.status(400).json({ error: 'Target name and company are required' });
@@ -18,19 +18,30 @@ export default async function handler(req, res) {
     const intel = {};
     const sourcesUsed = [];
 
-    // ── 1. Fetch LinkedIn profile directly if URL provided ──
+    // ── 1. LinkedIn — direct fetch if URL provided ──
     if (linkedinUrl && linkedinUrl.startsWith('http')) {
-      console.log('Fetching LinkedIn:', linkedinUrl);
       const liContent = await fetchPage(linkedinUrl);
       if (liContent && liContent.length > 100) {
         intel.linkedin = liContent.slice(0, 4000);
         sourcesUsed.push('LinkedIn profile (direct)');
       }
+    } else {
+      // No LinkedIn URL — scrape Google for person data
+      const personSearches = [
+        `"${targetName}" "${targetCompany}" site:linkedin.com`,
+        `"${targetName}" "${targetCompany}" role career`,
+        `"${targetName}" "${targetCompany}"`,
+      ];
+      const personResults = await Promise.all(personSearches.map(q => searchGoogle(q)));
+      const personIntel = personResults.filter(r => r.length > 30).join('\n\n');
+      if (personIntel.length > 50) {
+        intel.personSearch = personIntel.slice(0, 3000);
+        sourcesUsed.push('Web search (person)');
+      }
     }
 
-    // ── 2. Fetch company website directly if URL provided ──
+    // ── 2. Company website — direct fetch if URL provided ──
     if (companyUrl && companyUrl.startsWith('http')) {
-      console.log('Fetching company site:', companyUrl);
       const siteContent = await fetchPage(companyUrl);
       if (siteContent && siteContent.length > 100) {
         intel.website = siteContent.slice(0, 4000);
@@ -38,132 +49,36 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── 3. Web searches — always run these for news/context ──
-    const searches = [
-      `"${targetName}" "${targetCompany}"`,
-      `"${targetCompany}" news 2025`,
-      `"${targetCompany}" funding growth strategy`,
+    // ── 3. Always run company/news searches ──
+    const companySearches = [
+      `"${targetCompany}" news 2024 2025`,
+      `"${targetCompany}" funding growth strategy partnerships`,
     ];
-
-    // If no LinkedIn URL provided, add person-specific searches
-    if (!linkedinUrl) {
-      searches.push(`"${targetName}" career background`);
-      searches.push(`"${targetName}" interview OR podcast OR speaker`);
+    const companyResults = await Promise.all(companySearches.map(q => searchGoogle(q)));
+    const companyIntel = companyResults.filter(r => r.length > 30).join('\n\n');
+    if (companyIntel.length > 50) {
+      intel.companySearch = companyIntel.slice(0, 3000);
+      sourcesUsed.push('Web search (company)');
     }
 
-    const searchResults = await Promise.all(searches.map(q => searchDDG(q)));
-    const combinedSearch = searchResults
-      .map((r, i) => `SEARCH: "${searches[i]}"\n${r}`)
-      .filter(r => !r.includes('No results'))
-      .join('\n\n---\n\n');
-
-    if (combinedSearch.length > 50) {
-      intel.webSearch = combinedSearch.slice(0, 5000);
-      sourcesUsed.push('Web search');
+    // ── 4. If no LinkedIn URL and not yet confirmed — run quick ID check ──
+    if (!linkedinUrl && !confirmed) {
+      const idResult = await identifyPerson(targetName, targetCompany, intel, ANTHROPIC_API_KEY);
+      return res.status(200).json({
+        needsConfirmation: true,
+        identification: idResult,
+        intel, // pass back so we don't re-fetch on confirm
+      });
     }
 
-    // ── 4. Assess data quality ──
-    const hasDirectData = intel.linkedin || intel.website;
-    const confidenceBase = hasDirectData ? 75 : 35;
+    // ── 5. Full report generation ──
+    const hasDirectData = !!(intel.linkedin || intel.website);
+    const confidenceBase = intel.linkedin ? 80 : hasDirectData ? 65 : 45;
 
-    // ── 5. Claude synthesises everything ──
-    const systemPrompt = `You are an elite pre-meeting intelligence analyst. You receive raw data scraped from LinkedIn profiles, company websites, and web searches, then synthesise it into a precise, actionable battlecard.
-
-CRITICAL RULES:
-- Only state facts you can infer from the data provided. Never fabricate details.
-- If data is limited, say so honestly in the relevant fields — but still extract maximum value from what exists.
-- Every insight must be filtered through the user's calibration profile — make it feel personal and relevant to THEIR meeting objective.
-- Respond with ONLY a valid JSON object. No markdown, no explanation, no code fences.`;
-
-    const userPrompt = `CALIBRATION PROFILE:
-Role: ${calibration?.role || 'Not provided'}
-Company: ${calibration?.company || 'Not provided'}
-Meeting Type: ${calibration?.meetingType || 'Not provided'}
-Context: ${calibration?.context || 'None'}
-
-TARGET: ${targetName} at ${targetCompany}
-URLs provided: ${linkedinUrl || 'none'} | ${companyUrl || 'none'}
-
-─── RAW INTELLIGENCE ───
-
-${intel.linkedin ? `LINKEDIN PROFILE DATA:\n${intel.linkedin}\n\n` : 'LINKEDIN: No direct data — working from web search only.\n\n'}
-${intel.website ? `COMPANY WEBSITE DATA:\n${intel.website}\n\n` : `COMPANY WEBSITE: No direct data provided.\n\n`}
-${intel.webSearch ? `WEB SEARCH RESULTS:\n${intel.webSearch}` : ''}
-
-─── INSTRUCTIONS ───
-
-Synthesise the above into this exact JSON structure:
-
-{
-  "person": {
-    "name": "${targetName}",
-    "role": "their exact role/title — from LinkedIn if available, inferred if not",
-    "background": "2-3 sentences about who they are, career trajectory, what drives them",
-    "personality_signals": ["signal from their content/style", "signal 2", "signal 3"]
-  },
-  "company": {
-    "name": "${targetCompany}",
-    "summary": "2-3 sentence company overview based on actual data",
-    "size_stage": "headcount / funding stage / maturity — be specific if data supports it",
-    "recent_news": ["specific news item 1", "specific news item 2", "specific news item 3"],
-    "partnerships": ["partner 1 if found", "partner 2 if found"]
-  },
-  "pain_points": [
-    { "pain": "specific pain point grounded in data", "evidence": "specific evidence from the intel gathered" },
-    { "pain": "specific pain point", "evidence": "specific evidence" },
-    { "pain": "specific pain point", "evidence": "specific evidence" }
-  ],
-  "talking_points": [
-    { "point": "talking point tailored to THIS person and THIS meeting type", "why": "why it resonates given their specific situation" },
-    { "point": "talking point", "why": "why it resonates" },
-    { "point": "talking point", "why": "why it resonates" },
-    { "point": "talking point", "why": "why it resonates" }
-  ],
-  "suggested_approach": {
-    "opening": "Specific opening line or approach for the first 60 seconds — reference something real about them if possible",
-    "angle": "The strategic angle given their role, company stage, and your meeting objective",
-    "tone": "e.g. peer-to-peer, consultative, challenger, warm",
-    "avoid": ["specific thing to avoid based on their profile", "specific thing to avoid"]
-  },
-  "questions_to_ask": [
-    "Specific, intelligent question based on their actual situation?",
-    "Question 2?",
-    "Question 3?",
-    "Question 4?"
-  ],
-  "risk_flags": [
-    { "flag": "specific risk or likely objection", "mitigation": "how to handle it" },
-    { "flag": "risk 2", "mitigation": "mitigation 2" }
-  ],
-  "data_quality": "${hasDirectData ? 'HIGH — direct URL data used' : 'MEDIUM — web search only, consider providing LinkedIn/company URLs for better results'}",
-  "confidence_score": ${confidenceBase},
-  "sources_used": ${JSON.stringify(sourcesUsed)}
-}`;
-
-    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 4000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
+    const battlecard = await generateBattlecard({
+      targetName, targetCompany, calibration, intel,
+      sourcesUsed, confidenceBase, ANTHROPIC_API_KEY,
     });
-
-    if (!claudeRes.ok) {
-      const err = await claudeRes.text();
-      throw new Error(`Claude API error: ${err}`);
-    }
-
-    const claudeData = await claudeRes.json();
-    const rawText = claudeData.content[0].text.trim();
-    const cleaned = rawText.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
-    const battlecard = JSON.parse(cleaned);
 
     return res.status(200).json({ battlecard, targetName, targetCompany });
 
@@ -173,7 +88,139 @@ Synthesise the above into this exact JSON structure:
   }
 }
 
-// ── Fetch any webpage and return clean text ──
+// ── Quick person identification (pre-confirmation) ──
+async function identifyPerson(name, company, intel, apiKey) {
+  const rawData = [
+    intel.personSearch || '',
+    intel.companySearch || '',
+  ].join('\n\n').slice(0, 3000);
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 400,
+      messages: [{
+        role: 'user',
+        content: `Based on this web data, identify ${name} at ${company}. 
+        
+Raw data:
+${rawData}
+
+Respond ONLY with a JSON object, no markdown:
+{
+  "found": true or false,
+  "name": "full name",
+  "role": "their most likely role/title",
+  "company": "${company}",
+  "summary": "one sentence about who they are",
+  "confidence": "HIGH / MEDIUM / LOW"
+}`
+      }],
+    }),
+  });
+
+  const data = await res.json();
+  const text = data.content[0].text.trim().replace(/^```json\n?/, '').replace(/\n?```$/, '');
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { found: false, name, role: 'Unknown', company, summary: 'Could not identify from web data.', confidence: 'LOW' };
+  }
+}
+
+// ── Full battlecard generation ──
+async function generateBattlecard({ targetName, targetCompany, calibration, intel, sourcesUsed, confidenceBase, ANTHROPIC_API_KEY }) {
+  const systemPrompt = `You are an elite pre-meeting intelligence analyst. Synthesise raw data into a precise, actionable battlecard filtered through the user's calibration profile. Respond with ONLY a valid JSON object. No markdown, no explanation, no code fences.`;
+
+  const userPrompt = `CALIBRATION PROFILE:
+Role: ${calibration?.role || 'Not provided'}
+Company: ${calibration?.company || 'Not provided'}
+Meeting Type: ${calibration?.meetingType || 'Not provided'}
+Context: ${calibration?.context || 'None'}
+
+TARGET: ${targetName} at ${targetCompany}
+
+─── RAW INTELLIGENCE ───
+${intel.linkedin ? `LINKEDIN DATA:\n${intel.linkedin}\n\n` : ''}
+${intel.personSearch ? `PERSON WEB DATA:\n${intel.personSearch}\n\n` : ''}
+${intel.website ? `COMPANY WEBSITE:\n${intel.website}\n\n` : ''}
+${intel.companySearch ? `COMPANY NEWS/WEB:\n${intel.companySearch}` : ''}
+
+Return this exact JSON:
+{
+  "person": {
+    "name": "${targetName}",
+    "role": "exact role from data or best inference",
+    "background": "2-3 sentences: who they are, trajectory, what drives them",
+    "personality_signals": ["signal 1", "signal 2", "signal 3"]
+  },
+  "company": {
+    "name": "${targetCompany}",
+    "summary": "2-3 sentence overview based on actual data",
+    "size_stage": "specific headcount/stage if known",
+    "recent_news": ["news item 1", "news item 2", "news item 3"],
+    "partnerships": ["partner 1", "partner 2"]
+  },
+  "pain_points": [
+    { "pain": "specific pain grounded in data", "evidence": "specific evidence" },
+    { "pain": "specific pain", "evidence": "specific evidence" },
+    { "pain": "specific pain", "evidence": "specific evidence" }
+  ],
+  "talking_points": [
+    { "point": "tailored to this person + meeting type", "why": "why it resonates" },
+    { "point": "talking point", "why": "why it resonates" },
+    { "point": "talking point", "why": "why it resonates" },
+    { "point": "talking point", "why": "why it resonates" }
+  ],
+  "suggested_approach": {
+    "opening": "Specific opening for first 60 seconds — reference something real about them",
+    "angle": "Strategic angle given their role and your meeting objective",
+    "tone": "e.g. peer-to-peer, consultative, challenger",
+    "avoid": ["thing to avoid based on their profile", "thing to avoid"]
+  },
+  "questions_to_ask": [
+    "Specific intelligent question?",
+    "Question 2?",
+    "Question 3?",
+    "Question 4?"
+  ],
+  "risk_flags": [
+    { "flag": "specific risk or likely objection", "mitigation": "how to handle it" },
+    { "flag": "risk 2", "mitigation": "mitigation 2" }
+  ],
+  "data_quality": "${intel.linkedin ? 'HIGH — LinkedIn + web data' : intel.website ? 'MEDIUM-HIGH — company website + web data' : 'MEDIUM — web search only'}",
+  "confidence_score": ${confidenceBase},
+  "sources_used": ${JSON.stringify(sourcesUsed)}
+}`;
+
+  const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 4000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    }),
+  });
+
+  if (!claudeRes.ok) throw new Error(`Claude API error: ${await claudeRes.text()}`);
+  const data = await claudeRes.json();
+  const text = data.content[0].text.trim().replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
+  return JSON.parse(text);
+}
+
+// ── Fetch any webpage ──
 async function fetchPage(url) {
   try {
     const res = await fetch(url, {
@@ -184,45 +231,30 @@ async function fetchPage(url) {
       },
       signal: AbortSignal.timeout(8000),
     });
-
     if (!res.ok) return '';
     const html = await res.text();
-
-    // Strip scripts, styles, nav, footer noise
-    const clean = html
+    return html
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
       .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
       .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
-      .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
-      .replace(/<!--[\s\S]*?-->/g, '')
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
-      .replace(/\n+/g, '\n')
       .trim();
-
-    return clean;
-  } catch (e) {
-    console.log('Fetch failed for', url, e.message);
-    return '';
-  }
+  } catch { return ''; }
 }
 
-// ── DuckDuckGo search fallback ──
-async function searchDDG(query) {
+// ── Google search via DuckDuckGo ──
+async function searchGoogle(query) {
   try {
     const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return 'No results';
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return '';
     const data = await res.json();
     const parts = [];
     if (data.AbstractText) parts.push(data.AbstractText);
     if (data.Answer) parts.push(data.Answer);
-    (data.RelatedTopics || []).slice(0, 6).forEach(t => {
-      if (t.Text) parts.push(t.Text);
-    });
-    return parts.join('\n') || 'No results';
-  } catch {
-    return 'No results';
-  }
+    (data.RelatedTopics || []).slice(0, 8).forEach(t => { if (t.Text) parts.push(t.Text); });
+    return parts.join('\n') || '';
+  } catch { return ''; }
 }
