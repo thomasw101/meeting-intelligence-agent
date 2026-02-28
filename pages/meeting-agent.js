@@ -2,48 +2,43 @@ import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 
 const STEPS = {
-  CALIBRATE: 'calibrate',
-  TARGET: 'target',
-  CONFIRMING: 'confirming', // searching to find person
-  CONFIRM: 'confirm',       // show confirmation card
-  LOADING: 'loading',       // generating full report
-  REPORT: 'report',
+  CALIBRATE:  'calibrate',
+  TARGET:     'target',
+  CONFIRMING: 'confirming',
+  CONFIRM:    'confirm',
+  LOADING:    'loading',
+  REPORT:     'report',
 };
 
 export default function MeetingAgent() {
-  const [step, setStep] = useState(STEPS.CALIBRATE);
+  const [step, setStep]           = useState(STEPS.CALIBRATE);
   const [firstName, setFirstName] = useState('');
-  const [mounted, setMounted] = useState(false);
+  const [mounted, setMounted]     = useState(false);
 
   const [calibration, setCalibration] = useState({ role: '', company: '', meetingType: '', context: '' });
-  const [targetName, setTargetName] = useState('');
+  const [targetName, setTargetName]       = useState('');
   const [targetCompany, setTargetCompany] = useState('');
-  const [linkedinUrl, setLinkedinUrl] = useState('');
-  const [companyUrl, setCompanyUrl] = useState('');
+  const [linkedinUrl, setLinkedinUrl]     = useState('');
+  const [companyUrl, setCompanyUrl]       = useState('');
 
-  // Confirmation state
-  const [identification, setIdentification] = useState(null);
-  const [cachedIntel, setCachedIntel] = useState(null); // avoid re-fetching after confirm
+  // Confirmation
+  const [identification, setIdentification]   = useState(null);
+  const [confirmedRole, setConfirmedRole]     = useState('');
+  const [cachedIntel, setCachedIntel]         = useState(null);
 
-  const [battlecard, setBattlecard] = useState(null);
-  const [error, setError] = useState('');
+  const [battlecard, setBattlecard]   = useState(null);
+  const [error, setError]             = useState('');
   const [loadingStatus, setLoadingStatus] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [copied, setCopied]           = useState(false);
+  const [activeTab, setActiveTab]     = useState('overview');
 
   useEffect(() => {
     setMounted(true);
     try {
       const stored = localStorage.getItem('ll_user');
-      if (stored) {
-        const u = JSON.parse(stored);
-        if (u.firstName) setFirstName(u.firstName);
-      }
+      if (stored) { const u = JSON.parse(stored); if (u.firstName) setFirstName(u.firstName); }
       const savedCal = localStorage.getItem('ll_calibration');
-      if (savedCal) {
-        setCalibration(JSON.parse(savedCal));
-        setStep(STEPS.TARGET);
-      }
+      if (savedCal) { setCalibration(JSON.parse(savedCal)); setStep(STEPS.TARGET); }
     } catch (e) {}
   }, []);
 
@@ -59,18 +54,18 @@ export default function MeetingAgent() {
     setStep(STEPS.CALIBRATE);
   };
 
-  // ── Step 1: Initial submit — if no LinkedIn, do quick ID search first ──
+  // ── Initial submit ──
   const handleSubmit = async () => {
     if (!targetName.trim() || !targetCompany.trim()) return;
     setError('');
 
-    // If LinkedIn provided, skip confirmation and go straight to full research
     if (linkedinUrl.trim()) {
-      await runFullResearch(true);
+      // LinkedIn provided — skip confirmation
+      await runFullResearch();
       return;
     }
 
-    // No LinkedIn — run quick identification first
+    // No LinkedIn — quick ID first
     setStep(STEPS.CONFIRMING);
     try {
       const res = await fetch('/api/research', {
@@ -90,10 +85,10 @@ export default function MeetingAgent() {
 
       if (data.needsConfirmation) {
         setIdentification(data.identification);
+        setConfirmedRole(data.identification?.role || '');
         setCachedIntel(data.intel);
         setStep(STEPS.CONFIRM);
       } else {
-        // Shouldn't happen but handle gracefully
         setBattlecard(data.battlecard);
         setStep(STEPS.REPORT);
       }
@@ -103,15 +98,15 @@ export default function MeetingAgent() {
     }
   };
 
-  // ── Step 2: User confirms identity — run full research ──
-  const runFullResearch = async (skipConfirm = false) => {
+  // ── Full research after confirmation (or direct with LinkedIn) ──
+  const runFullResearch = async () => {
     setStep(STEPS.LOADING);
     setError('');
     setBattlecard(null);
     setActiveTab('overview');
 
     const statuses = linkedinUrl
-      ? ['// FETCHING LINKEDIN PROFILE...', '// SCRAPING COMPANY DATA...', '// ANALYSING INTELLIGENCE...', '// SYNTHESISING BATTLECARD...']
+      ? ['// FETCHING LINKEDIN PROFILE...', '// FETCHING RECENT POSTS...', '// ANALYSING INTELLIGENCE...', '// SYNTHESISING BATTLECARD...']
       : ['// IDENTITY CONFIRMED...', '// CROSS-REFERENCING SOURCES...', '// ANALYSING INTELLIGENCE...', '// SYNTHESISING BATTLECARD...'];
 
     let i = 0;
@@ -119,7 +114,7 @@ export default function MeetingAgent() {
     const interval = setInterval(() => {
       i = Math.min(i + 1, statuses.length - 1);
       setLoadingStatus(statuses[i]);
-    }, 3500);
+    }, 4000);
 
     try {
       const res = await fetch('/api/research', {
@@ -130,9 +125,13 @@ export default function MeetingAgent() {
           targetCompany: targetCompany.trim(),
           linkedinUrl: linkedinUrl.trim(),
           companyUrl: companyUrl.trim(),
-          calibration,
+          calibration: {
+            ...calibration,
+            // Pass confirmed role override if set from confirmation card
+            confirmedRole: confirmedRole || undefined,
+          },
           confirmed: true,
-          cachedIntel, // pass cached intel so API doesn't re-fetch
+          cachedIntel,
         }),
       });
       const data = await res.json();
@@ -166,11 +165,11 @@ export default function MeetingAgent() {
     setTargetName(''); setTargetCompany('');
     setLinkedinUrl(''); setCompanyUrl('');
     setBattlecard(null); setError('');
-    setIdentification(null); setCachedIntel(null);
+    setIdentification(null); setConfirmedRole(''); setCachedIntel(null);
     setStep(STEPS.TARGET);
   };
 
-  const confidenceColor = (s) => s >= 70 ? '#34D399' : s >= 45 ? 'var(--warm)' : '#ff4444';
+  const confidenceColor = s => s >= 70 ? '#34D399' : s >= 45 ? 'var(--warm)' : '#ff4444';
 
   if (!mounted) return null;
 
@@ -178,19 +177,17 @@ export default function MeetingAgent() {
     <Layout>
       <div className="page">
 
-        {/* ── HEADER — always interactive ── */}
+        {/* ── HEADER ── */}
         <div className="header" onClick={() => step === STEPS.REPORT && newReport()}>
           <div className="eyebrow">// MEETING_INTEL_AGENT</div>
-          <h1 className="header-title">
-            Intelligence <span className="highlight">Briefing.</span>
-          </h1>
+          <h1 className="header-title">Intelligence <span className="highlight">Briefing.</span></h1>
           <p className="subtext">
-            {step === STEPS.CALIBRATE && `${firstName ? `Hi ${firstName}. ` : ''}Calibrate your agent before your first run.`}
-            {step === STEPS.TARGET && `Agent calibrated · ${calibration.role} at ${calibration.company}`}
+            {step === STEPS.CALIBRATE  && `${firstName ? `Hi ${firstName}. ` : ''}Calibrate your agent before your first run.`}
+            {step === STEPS.TARGET     && `Agent calibrated · ${calibration.role} at ${calibration.company}`}
             {step === STEPS.CONFIRMING && 'Scanning the web — identifying target...'}
-            {step === STEPS.CONFIRM && 'Confirm the target before generating report.'}
-            {step === STEPS.LOADING && 'Running deep reconnaissance...'}
-            {step === STEPS.REPORT && `Battlecard ready · click title to run new report`}
+            {step === STEPS.CONFIRM    && 'Confirm the target before generating report.'}
+            {step === STEPS.LOADING    && 'Running deep reconnaissance...'}
+            {step === STEPS.REPORT     && 'Battlecard ready · click title to run new report'}
           </p>
         </div>
 
@@ -204,13 +201,13 @@ export default function MeetingAgent() {
             <div className="form-grid">
               <div className="field">
                 <label>Your Role / Title</label>
-                <input type="text" placeholder="e.g. Founder, Head of Sales"
-                  value={calibration.role} onChange={e => setCalibration(p => ({ ...p, role: e.target.value }))} />
+                <input type="text" value={calibration.role}
+                  onChange={e => setCalibration(p => ({ ...p, role: e.target.value }))} />
               </div>
               <div className="field">
                 <label>Your Company</label>
-                <input type="text" placeholder="e.g. LearnLab Media"
-                  value={calibration.company} onChange={e => setCalibration(p => ({ ...p, company: e.target.value }))} />
+                <input type="text" value={calibration.company}
+                  onChange={e => setCalibration(p => ({ ...p, company: e.target.value }))} />
               </div>
               <div className="field full">
                 <label>Meeting Type</label>
@@ -224,7 +221,6 @@ export default function MeetingAgent() {
               <div className="field full">
                 <label>Your Context <span className="optional">(optional — more detail = sharper report)</span></label>
                 <textarea
-                  placeholder="e.g. I specialise in content creation and AI tools for B2B companies. I pitch media packages and custom tool builds."
                   value={calibration.context}
                   onChange={e => setCalibration(p => ({ ...p, context: e.target.value }))}
                   rows={3} />
@@ -244,29 +240,29 @@ export default function MeetingAgent() {
             <div className="card-label">// TARGET_ACQUISITION</div>
             <h2>Who are you meeting?</h2>
             <p className="card-desc">
-              Add their LinkedIn URL for the highest confidence report. Without it, we'll search the web and confirm the match before generating.
+              Add their LinkedIn URL for the highest confidence report. Without it we'll search the web and ask you to confirm the match first.
             </p>
 
             <div className="form-grid">
               <div className="field">
                 <label>Person's Full Name <span className="required">*</span></label>
-                <input type="text" placeholder="e.g. David Martin" value={targetName}
+                <input type="text" value={targetName}
                   onChange={e => setTargetName(e.target.value)} autoFocus />
               </div>
               <div className="field">
                 <label>Their Company <span className="required">*</span></label>
-                <input type="text" placeholder="e.g. Insurtech Insights" value={targetCompany}
+                <input type="text" value={targetCompany}
                   onChange={e => setTargetCompany(e.target.value)} />
               </div>
               <div className="field">
                 <label>LinkedIn URL <span className="badge-high">BEST RESULTS</span></label>
-                <input type="url" placeholder="https://linkedin.com/in/username"
-                  value={linkedinUrl} onChange={e => setLinkedinUrl(e.target.value)} />
+                <input type="url" value={linkedinUrl}
+                  onChange={e => setLinkedinUrl(e.target.value)} />
               </div>
               <div className="field">
                 <label>Company Website <span className="badge-med">RECOMMENDED</span></label>
-                <input type="url" placeholder="https://companyname.com"
-                  value={companyUrl} onChange={e => setCompanyUrl(e.target.value)} />
+                <input type="url" value={companyUrl}
+                  onChange={e => setCompanyUrl(e.target.value)} />
               </div>
             </div>
 
@@ -286,12 +282,10 @@ export default function MeetingAgent() {
           </div>
         )}
 
-        {/* ── CONFIRMING (mini loading) ── */}
+        {/* ── CONFIRMING ── */}
         {step === STEPS.CONFIRMING && (
           <div className="card loading-card">
-            <div className="spinner">
-              <div className="ring" /><div className="ring ring-2" />
-            </div>
+            <div className="spinner"><div className="ring" /><div className="ring ring-2" /></div>
             <div className="loading-target">{targetName} · {targetCompany}</div>
             <div className="loading-status">// SCANNING WEB — IDENTIFYING TARGET...</div>
             <div className="loading-bar"><div className="loading-fill-short" /></div>
@@ -303,32 +297,47 @@ export default function MeetingAgent() {
           <div className="card">
             <div className="card-label">// TARGET_IDENTIFIED — CONFIRM BEFORE PROCEEDING</div>
             <h2>Is this the right person?</h2>
-            <p className="card-desc">We found the following match. Confirm to generate the full intelligence report.</p>
+            <p className="card-desc">
+              We found this match. Confirm their role is correct, then generate the full report.
+            </p>
 
             <div className="confirm-card">
-              <div className="confirm-confidence">
+              <div className="confirm-top">
+                <div>
+                  <div className="confirm-name">{identification.name}</div>
+                  <div className="confirm-company">{identification.company}</div>
+                </div>
                 <span className={`conf-badge ${identification.confidence === 'HIGH' ? 'high' : identification.confidence === 'MEDIUM' ? 'med' : 'low'}`}>
                   {identification.confidence} CONFIDENCE
                 </span>
               </div>
-              <div className="confirm-name">{identification.name}</div>
-              <div className="confirm-role">{identification.role}</div>
-              <div className="confirm-company">{identification.company}</div>
+
               {identification.summary && (
                 <p className="confirm-summary">{identification.summary}</p>
               )}
+
+              {/* Editable role */}
+              <div className="role-edit">
+                <label className="role-label">// THEIR ROLE — correct if needed before generating</label>
+                <input
+                  type="text"
+                  className="role-input"
+                  value={confirmedRole}
+                  onChange={e => setConfirmedRole(e.target.value)}
+                  placeholder="e.g. Director of Sales, Founder, Head of Marketing"
+                />
+              </div>
             </div>
 
             <div className="confirm-actions">
-              <button className="btn-primary confirm-yes" onClick={() => runFullResearch()}>
+              <button className="btn-primary confirm-yes" onClick={runFullResearch}>
                 ✓ YES, GENERATE REPORT
               </button>
               <button className="btn-no" onClick={() => {
-                setIdentification(null);
-                setCachedIntel(null);
+                setIdentification(null); setCachedIntel(null); setConfirmedRole('');
                 setStep(STEPS.TARGET);
               }}>
-                ✕ NO, CORRECT TARGET
+                ✕ NOT THEM — GO BACK
               </button>
             </div>
           </div>
@@ -337,14 +346,12 @@ export default function MeetingAgent() {
         {/* ── LOADING ── */}
         {step === STEPS.LOADING && (
           <div className="card loading-card">
-            <div className="spinner">
-              <div className="ring" /><div className="ring ring-2" />
-            </div>
+            <div className="spinner"><div className="ring" /><div className="ring ring-2" /></div>
             <div className="loading-target">{targetName} · {targetCompany}</div>
             <div className="loading-status">{loadingStatus}</div>
             <div className="loading-bar"><div className="loading-fill" /></div>
             <div className="loading-note">
-              {linkedinUrl ? 'Direct LinkedIn data — highest quality output.' : 'Web data confirmed — generating your battlecard.'}
+              {linkedinUrl ? 'Fetching LinkedIn profile + posts via Bright Data...' : 'Web data confirmed — generating your battlecard.'}
             </div>
           </div>
         )}
@@ -494,90 +501,66 @@ export default function MeetingAgent() {
         <style jsx>{`
           .page { max-width: 900px; margin: 0 auto; padding: 100px 20px 120px; }
 
-          /* ── Header ── */
-          .header {
-            text-align: center; margin-bottom: 60px;
-            cursor: default; transition: all 0.3s ease;
-          }
-          .header:hover .header-title {
-            transform: translateY(-2px);
-            text-shadow: 0 10px 30px rgba(0,0,0,0.5);
-          }
-          .header:hover .eyebrow {
-            letter-spacing: 0.3em;
-            color: var(--warm);
-          }
-          .header:hover .highlight {
-            text-shadow: 0 0 25px rgba(255,107,53,0.6);
-            filter: brightness(1.2);
-          }
-          .eyebrow {
-            font-family: 'JetBrains Mono'; color: var(--accent);
-            font-size: 11px; letter-spacing: 0.2em; margin-bottom: 16px;
-            transition: all 0.4s ease;
-          }
-          .header-title {
-            font-size: 48px; font-weight: 800; color: #fff; margin-bottom: 12px;
-            transition: all 0.4s ease; display: block;
-          }
-          .highlight { color: var(--warm); transition: all 0.4s ease; }
+          .header { text-align: center; margin-bottom: 60px; transition: all 0.3s; }
+          .header:hover .header-title { transform: translateY(-2px); }
+          .header:hover .eyebrow { letter-spacing: 0.3em; color: var(--warm); }
+          .header:hover .highlight { text-shadow: 0 0 25px rgba(255,107,53,0.6); filter: brightness(1.2); }
+          .eyebrow { font-family: 'JetBrains Mono'; color: var(--accent); font-size: 11px; letter-spacing: 0.2em; margin-bottom: 16px; transition: all 0.4s; }
+          .header-title { font-size: 48px; font-weight: 800; color: #fff; margin-bottom: 12px; transition: all 0.4s; display: block; }
+          .highlight { color: var(--warm); transition: all 0.4s; }
           .subtext { color: var(--text-2); font-size: 13px; font-family: 'JetBrains Mono'; }
 
-          /* ── Card ── */
           .card { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 50px; backdrop-filter: blur(10px); }
           .card-label { font-family: 'JetBrains Mono'; font-size: 10px; letter-spacing: 0.2em; color: var(--accent); margin-bottom: 16px; }
           h2 { font-size: 28px; font-weight: 800; color: #fff; margin-bottom: 8px; }
           .card-desc { color: var(--text-2); font-size: 14px; line-height: 1.6; margin-bottom: 36px; }
 
-          /* ── Form ── */
           .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
           .field { display: flex; flex-direction: column; gap: 8px; }
           .field.full { grid-column: 1 / -1; }
           label { font-family: 'JetBrains Mono'; font-size: 10px; letter-spacing: 0.15em; color: var(--text-2); text-transform: uppercase; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
           .optional { color: rgba(255,255,255,0.2); font-size: 9px; text-transform: none; }
           .required { color: var(--warm); }
-          .badge-high { font-size: 8px; padding: 2px 7px; background: rgba(125,249,255,0.1); border: 1px solid rgba(125,249,255,0.25); color: var(--accent); border-radius: 4px; letter-spacing: 0.08em; }
-          .badge-med { font-size: 8px; padding: 2px 7px; background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.2); color: var(--warm); border-radius: 4px; letter-spacing: 0.08em; }
-          input, textarea { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s; font-family: inherit; resize: vertical; }
+          .badge-high { font-size: 8px; padding: 2px 7px; background: rgba(125,249,255,0.1); border: 1px solid rgba(125,249,255,0.25); color: var(--accent); border-radius: 4px; }
+          .badge-med { font-size: 8px; padding: 2px 7px; background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.2); color: var(--warm); border-radius: 4px; }
+
+          input, textarea { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s; font-family: inherit; resize: vertical; width: 100%; box-sizing: border-box; }
           input:focus, textarea:focus { border-color: var(--accent); background: rgba(0,0,0,0.5); }
 
-          /* ── Pills ── */
           .pill-group { display: flex; flex-wrap: wrap; gap: 8px; }
           .pill { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text-2); font-size: 13px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
           .pill:hover { border-color: var(--accent); color: var(--accent); }
           .pill.active { background: rgba(125,249,255,0.1); border-color: var(--accent); color: var(--accent); }
 
-          /* ── Info / warning bars ── */
           .info-bar { font-family: 'JetBrains Mono'; font-size: 10px; letter-spacing: 0.1em; color: rgba(125,249,255,0.5); background: rgba(125,249,255,0.05); border: 1px solid rgba(125,249,255,0.1); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; }
           .error-msg { font-family: 'JetBrains Mono'; font-size: 11px; color: #ff4444; margin-bottom: 16px; padding: 12px; background: rgba(255,68,68,0.1); border-radius: 8px; border: 1px solid rgba(255,68,68,0.2); }
 
-          /* ── Buttons ── */
           .btn-primary { width: 100%; padding: 16px; background: var(--accent); color: #000; border: none; border-radius: 12px; font-weight: 800; font-size: 13px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.08em; transition: all 0.2s; font-family: 'JetBrains Mono'; }
           .btn-primary:hover:not(:disabled) { box-shadow: 0 0 20px rgba(125,249,255,0.4); transform: scale(1.01); }
           .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; }
           .btn-recalibrate { width: 100%; margin-top: 10px; padding: 12px; background: transparent; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; color: rgba(255,255,255,0.3); font-family: 'JetBrains Mono'; font-size: 11px; cursor: pointer; letter-spacing: 0.1em; transition: all 0.2s; }
           .btn-recalibrate:hover { color: var(--warm); border-color: rgba(255,107,53,0.3); }
 
-          /* ── Confirmation card ── */
-          .confirm-card {
-            background: rgba(0,0,0,0.3); border: 1px solid rgba(125,249,255,0.15);
-            border-radius: 16px; padding: 32px; margin-bottom: 28px;
-          }
-          .confirm-confidence { margin-bottom: 16px; }
-          .conf-badge { font-family: 'JetBrains Mono'; font-size: 9px; letter-spacing: 0.15em; padding: 4px 10px; border-radius: 4px; }
+          /* Confirmation card */
+          .confirm-card { background: rgba(0,0,0,0.3); border: 1px solid rgba(125,249,255,0.15); border-radius: 16px; padding: 32px; margin-bottom: 28px; }
+          .confirm-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+          .confirm-name { font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+          .confirm-company { font-family: 'JetBrains Mono'; font-size: 11px; color: var(--text-2); letter-spacing: 0.1em; }
+          .conf-badge { font-family: 'JetBrains Mono'; font-size: 9px; letter-spacing: 0.15em; padding: 4px 10px; border-radius: 4px; white-space: nowrap; }
           .conf-badge.high { background: rgba(52,211,153,0.15); color: #34D399; border: 1px solid rgba(52,211,153,0.3); }
           .conf-badge.med { background: rgba(255,107,53,0.15); color: var(--warm); border: 1px solid rgba(255,107,53,0.3); }
           .conf-badge.low { background: rgba(255,68,68,0.15); color: #ff4444; border: 1px solid rgba(255,68,68,0.3); }
-          .confirm-name { font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 6px; }
-          .confirm-role { font-family: 'JetBrains Mono'; font-size: 11px; color: var(--accent); letter-spacing: 0.1em; margin-bottom: 4px; }
-          .confirm-company { font-family: 'JetBrains Mono'; font-size: 11px; color: var(--text-2); letter-spacing: 0.1em; margin-bottom: 16px; }
-          .confirm-summary { color: rgba(255,255,255,0.6); font-size: 14px; line-height: 1.6; }
+          .confirm-summary { color: rgba(255,255,255,0.6); font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
+          .role-edit { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
+          .role-label { font-family: 'JetBrains Mono'; font-size: 9px; letter-spacing: 0.15em; color: var(--accent); }
+          .role-input { background: rgba(0,0,0,0.4); border: 1px solid rgba(125,249,255,0.3); border-radius: 10px; padding: 12px 16px; color: #fff; font-size: 15px; font-weight: 600; outline: none; transition: border-color 0.2s; font-family: inherit; width: 100%; box-sizing: border-box; }
+          .role-input:focus { border-color: var(--accent); }
           .confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
           .confirm-yes { margin: 0; }
           .btn-no { padding: 16px; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: rgba(255,255,255,0.4); font-family: 'JetBrains Mono'; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; transition: all 0.2s; text-transform: uppercase; }
           .btn-no:hover { border-color: #ff4444; color: #ff4444; background: rgba(255,68,68,0.08); }
 
-          /* ── Loading ── */
+          /* Loading */
           .loading-card { display: flex; flex-direction: column; align-items: center; padding: 80px 50px; gap: 24px; }
           .spinner { position: relative; width: 60px; height: 60px; }
           .ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--accent); animation: spin 1s linear infinite; }
@@ -586,13 +569,13 @@ export default function MeetingAgent() {
           .loading-target { font-size: 16px; font-weight: 700; color: #fff; }
           .loading-status { font-family: 'JetBrains Mono'; font-size: 11px; color: var(--accent); letter-spacing: 0.15em; min-height: 20px; }
           .loading-bar { width: 240px; height: 2px; background: rgba(255,255,255,0.1); border-radius: 999px; overflow: hidden; }
-          .loading-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--warm)); animation: loading 4s ease-in-out infinite; }
-          .loading-fill-short { height: 100%; background: linear-gradient(90deg, var(--accent), var(--warm)); animation: loading-short 2s ease-in-out infinite; }
-          @keyframes loading { 0% { width: 0%; } 60% { width: 80%; } 100% { width: 95%; } }
+          .loading-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--warm)); animation: loading 5s ease-in-out infinite; }
+          .loading-fill-short { height: 100%; background: linear-gradient(90deg, var(--accent), var(--warm)); animation: loading-short 2s ease-in-out forwards; }
+          @keyframes loading { 0% { width: 0%; } 70% { width: 85%; } 100% { width: 95%; } }
           @keyframes loading-short { 0% { width: 0%; } 100% { width: 60%; } }
           .loading-note { font-family: 'JetBrains Mono'; font-size: 10px; color: rgba(255,255,255,0.25); letter-spacing: 0.1em; text-align: center; max-width: 340px; }
 
-          /* ── Report ── */
+          /* Report */
           .report { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; overflow: hidden; }
           .report-header { padding: 40px 50px 30px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; }
           .report-title { font-size: 32px; font-weight: 800; color: #fff; margin: 8px 0 6px; }
@@ -646,7 +629,7 @@ export default function MeetingAgent() {
 
           @media (max-width: 700px) {
             .page { padding: 80px 16px 100px; }
-            h1 { font-size: 32px; }
+            .header-title { font-size: 32px; }
             .card { padding: 30px 20px; }
             .form-grid { grid-template-columns: 1fr; }
             .section-grid { grid-template-columns: 1fr; }
@@ -655,6 +638,7 @@ export default function MeetingAgent() {
             .tab-content { padding: 28px 20px; }
             .report-actions { flex-wrap: wrap; padding: 20px; }
             .confirm-actions { grid-template-columns: 1fr; }
+            .confirm-top { flex-direction: column; gap: 12px; }
           }
         `}</style>
       </div>
@@ -666,27 +650,27 @@ function generatePlainText(b) {
   const lines = [`MEETING INTELLIGENCE REPORT`, `Target: ${b.person?.name} — ${b.person?.role}`, `Company: ${b.company?.name} (${b.company?.size_stage})`, `Confidence: ${b.confidence_score}%`, ``];
   lines.push(`--- PERSON ---`, b.person?.background || '', ``);
   lines.push(`--- COMPANY ---`, b.company?.summary || '', ``);
-  lines.push(`Recent News:`); (b.company?.recent_news || []).forEach(n => lines.push(`  • ${n}`)); lines.push(``);
-  lines.push(`--- PAIN POINTS ---`); (b.pain_points || []).forEach((p, i) => lines.push(`${i + 1}. ${p.pain}`, `   Evidence: ${p.evidence}`, ``));
-  lines.push(`--- TALKING POINTS ---`); (b.talking_points || []).forEach((t, i) => lines.push(`${i + 1}. ${t.point}`, `   Why: ${t.why}`, ``));
-  lines.push(`--- SUGGESTED APPROACH ---`, `Opening: ${b.suggested_approach?.opening}`, `Angle: ${b.suggested_approach?.angle}`, `Tone: ${b.suggested_approach?.tone}`, ``);
-  lines.push(`--- QUESTIONS TO ASK ---`); (b.questions_to_ask || []).forEach((q, i) => lines.push(`${i + 1}. ${q}`)); lines.push(``);
-  lines.push(`--- RISK FLAGS ---`); (b.risk_flags || []).forEach(r => lines.push(`! ${r.flag}`, `  Mitigation: ${r.mitigation}`, ``));
+  lines.push(`Recent News:`); (b.company?.recent_news || []).forEach(n => lines.push(`  • ${n}`));
+  lines.push(`\n--- PAIN POINTS ---`); (b.pain_points || []).forEach((p, i) => lines.push(`${i+1}. ${p.pain}\n   Evidence: ${p.evidence}`));
+  lines.push(`\n--- TALKING POINTS ---`); (b.talking_points || []).forEach((t, i) => lines.push(`${i+1}. ${t.point}\n   Why: ${t.why}`));
+  lines.push(`\n--- APPROACH ---`, `Opening: ${b.suggested_approach?.opening}`, `Angle: ${b.suggested_approach?.angle}`, `Tone: ${b.suggested_approach?.tone}`);
+  lines.push(`\n--- QUESTIONS ---`); (b.questions_to_ask || []).forEach((q, i) => lines.push(`${i+1}. ${q}`));
+  lines.push(`\n--- RISKS ---`); (b.risk_flags || []).forEach(r => lines.push(`! ${r.flag}\n  Mitigation: ${r.mitigation}`));
   return lines.join('\n');
 }
 
 function generatePrintHTML(b, name, company) {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Intel Report — ${name}</title>
-  <style>* { margin:0; padding:0; box-sizing:border-box; } body { font-family:'Helvetica Neue',Arial,sans-serif; color:#1a1a1a; padding:40px; font-size:13px; line-height:1.6; } h1 { font-size:26px; margin-bottom:4px; } .meta { color:#666; font-size:11px; margin-bottom:28px; padding-bottom:16px; border-bottom:2px solid #000; } h2 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:#999; margin:24px 0 10px; border-bottom:1px solid #eee; padding-bottom:6px; } p { margin-bottom:10px; } .item { margin-bottom:12px; padding:10px 14px; background:#f7f7f7; border-radius:4px; border-left:3px solid #000; } .item-title { font-weight:700; margin-bottom:4px; } .item-sub { color:#666; font-size:12px; } .tag { display:inline-block; padding:2px 8px; background:#eee; border-radius:99px; font-size:10px; margin:2px; } ul { padding-left:18px; } li { margin-bottom:5px; } .score { float:right; font-size:22px; font-weight:700; } @media print { body { padding:20px; } }</style>
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Intel — ${name}</title>
+  <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1a1a1a;padding:40px;font-size:13px;line-height:1.6}h1{font-size:26px;margin-bottom:4px}.meta{color:#666;font-size:11px;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid #000}h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#999;margin:24px 0 10px;border-bottom:1px solid #eee;padding-bottom:6px}p{margin-bottom:10px}.item{margin-bottom:12px;padding:10px 14px;background:#f7f7f7;border-radius:4px;border-left:3px solid #000}.item-title{font-weight:700;margin-bottom:4px}.item-sub{color:#666;font-size:12px}.tag{display:inline-block;padding:2px 8px;background:#eee;border-radius:99px;font-size:10px;margin:2px}ul{padding-left:18px}li{margin-bottom:5px}.score{float:right;font-size:22px;font-weight:700}@media print{body{padding:20px}}</style>
   </head><body>
-  <h1>${b.person?.name || name} <span class="score">${b.confidence_score}%</span></h1>
-  <div class="meta">${b.person?.role || ''} · ${b.company?.name || company}</div>
-  <h2>Person</h2><p>${b.person?.background || ''}</p>${(b.person?.personality_signals || []).map(s => `<span class="tag">${s}</span>`).join('')}
-  <h2>Company</h2><p><strong>${b.company?.size_stage || ''}</strong> — ${b.company?.summary || ''}</p><ul>${(b.company?.recent_news || []).map(n => `<li>${n}</li>`).join('')}</ul>
-  <h2>Pain Points</h2>${(b.pain_points || []).map(p => `<div class="item"><div class="item-title">${p.pain}</div><div class="item-sub">Evidence: ${p.evidence}</div></div>`).join('')}
-  <h2>Talking Points</h2>${(b.talking_points || []).map(t => `<div class="item"><div class="item-title">${t.point}</div><div class="item-sub">Why: ${t.why}</div></div>`).join('')}
-  <h2>Approach</h2><div class="item"><div class="item-title">Opening</div>${b.suggested_approach?.opening || ''}</div><div class="item"><div class="item-title">Angle</div>${b.suggested_approach?.angle || ''}</div>
-  <h2>Questions</h2><ul>${(b.questions_to_ask || []).map(q => `<li>${q}</li>`).join('')}</ul>
-  <h2>Risks</h2>${(b.risk_flags || []).map(r => `<div class="item"><div class="item-title">⚠ ${r.flag}</div><div class="item-sub">Mitigation: ${r.mitigation}</div></div>`).join('')}
+  <h1>${b.person?.name||name} <span class="score">${b.confidence_score}%</span></h1>
+  <div class="meta">${b.person?.role||''} · ${b.company?.name||company}</div>
+  <h2>Person</h2><p>${b.person?.background||''}</p>${(b.person?.personality_signals||[]).map(s=>`<span class="tag">${s}</span>`).join('')}
+  <h2>Company</h2><p><strong>${b.company?.size_stage||''}</strong> — ${b.company?.summary||''}</p><ul>${(b.company?.recent_news||[]).map(n=>`<li>${n}</li>`).join('')}</ul>
+  <h2>Pain Points</h2>${(b.pain_points||[]).map(p=>`<div class="item"><div class="item-title">${p.pain}</div><div class="item-sub">Evidence: ${p.evidence}</div></div>`).join('')}
+  <h2>Talking Points</h2>${(b.talking_points||[]).map(t=>`<div class="item"><div class="item-title">${t.point}</div><div class="item-sub">Why: ${t.why}</div></div>`).join('')}
+  <h2>Approach</h2><div class="item"><div class="item-title">Opening</div>${b.suggested_approach?.opening||''}</div><div class="item"><div class="item-title">Angle</div>${b.suggested_approach?.angle||''}</div>
+  <h2>Questions</h2><ul>${(b.questions_to_ask||[]).map(q=>`<li>${q}</li>`).join('')}</ul>
+  <h2>Risks</h2>${(b.risk_flags||[]).map(r=>`<div class="item"><div class="item-title">⚠ ${r.flag}</div><div class="item-sub">Mitigation: ${r.mitigation}</div></div>`).join('')}
   </body></html>`;
 }
