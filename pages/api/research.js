@@ -3,7 +3,7 @@ export const config = {
 };
 
 const LINKEDIN_PROFILE_DATASET = 'gd_l1viktl72bvl7bjuj0';
-const LINKEDIN_POSTS_DATASET   = 'gd_lyy3tktm25m4avu1cz'; // LinkedIn posts by profile URL
+const LINKEDIN_POSTS_DATASET   = 'gd_lyy3tktm25m4avu764'; // LinkedIn posts by profile URL
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -109,7 +109,9 @@ export default async function handler(req, res) {
 // ── Bright Data synchronous scrape ──
 async function brightDataScrape(datasetId, url, apiKey) {
   try {
-    const endpoint = `https://api.brightdata.com/datasets/v3/scrape?dataset_id=${datasetId}&format=json`;
+    const endpoint = `https://api.brightdata.com/datasets/v3/scrape?dataset_id=${datasetId}&format=json&notify=false`;
+
+    console.log(`BD calling dataset ${datasetId} for ${url}`);
 
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -118,24 +120,29 @@ async function brightDataScrape(datasetId, url, apiKey) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify([{ url }]),
-      signal: AbortSignal.timeout(30000), // 30s timeout for sync scrape
+      signal: AbortSignal.timeout(45000),
     });
 
+    const responseText = await res.text();
+    console.log(`BD status: ${res.status} | preview: ${responseText.slice(0, 200)}`);
+
     if (!res.ok) {
-      const errText = await res.text();
-      console.error(`Bright Data error for ${datasetId}:`, errText);
+      console.error(`BD error ${datasetId}:`, responseText);
       return null;
     }
 
-    const data = await res.json();
+    let data;
+    try { data = JSON.parse(responseText); } catch { return null; }
 
-    // Returns array — grab first record
-    if (Array.isArray(data) && data.length > 0) return data[0];
-    if (data && typeof data === 'object') return data;
+    if (Array.isArray(data) && data.length > 0) {
+      console.log(`BD success: ${data.length} records for ${datasetId}`);
+      return data[0];
+    }
+    if (data && typeof data === 'object' && !Array.isArray(data)) return data;
     return null;
 
   } catch (err) {
-    console.error('Bright Data fetch failed:', err.message);
+    console.error('BD fetch failed:', err.message);
     return null;
   }
 }
