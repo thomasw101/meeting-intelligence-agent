@@ -127,15 +127,15 @@ function formatTime(s) {
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 
 export default function IQTest() {
-  const [phase, setPhase]         = useState('intro');
-  const [questions, setQuestions] = useState([]);
-  const [idx, setIdx]             = useState(0);
-  const [selected, setSelected]   = useState(null);
-  const [answers, setAnswers]     = useState({});
-  const [startTime, setStartTime] = useState(null);
-  const [elapsed, setElapsed]     = useState(0);
-  const [result, setResult]       = useState(null);
-  const [mounted, setMounted]     = useState(false);
+  const [phase, setPhase]               = useState('intro');
+  const [questions, setQuestions]       = useState([]);
+  const [idx, setIdx]                   = useState(0);
+  const [answers, setAnswers]           = useState({});
+  const [startTime, setStartTime]       = useState(null);
+  const [elapsed, setElapsed]           = useState(0);
+  const [result, setResult]             = useState(null);
+  const [mounted, setMounted]           = useState(false);
+  const [showWarning, setShowWarning]   = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -149,35 +149,52 @@ export default function IQTest() {
     const qs = selectQuestions(count);
     setQuestions(qs);
     setIdx(0);
-    setSelected(null);
     setAnswers({});
     setStartTime(Date.now());
     setElapsed(0);
     setResult(null);
+    setShowWarning(false);
     setPhase('test');
   };
 
-  const handleNext = () => {
-    const q = questions[idx];
-    const newAnswers = { ...answers, [q.id]: selected };
-    setAnswers(newAnswers);
+  // Select an answer for the current question
+  const handleSelect = (opt) => {
+    setAnswers(prev => ({ ...prev, [questions[idx].id]: opt }));
+  };
 
-    if (idx < questions.length - 1) {
-      setIdx(i => i + 1);
-      setSelected(null);
+  // Navigate back
+  const handleBack = () => {
+    if (idx > 0) setIdx(i => i - 1);
+  };
+
+  // Navigate forward / skip
+  const handleForward = () => {
+    if (idx < questions.length - 1) setIdx(i => i + 1);
+  };
+
+  // Attempt to finish — warn about unanswered questions first
+  const handleFinish = () => {
+    const unanswered = questions.filter(q => !answers[q.id]);
+    if (unanswered.length > 0) {
+      setShowWarning(true);
     } else {
-      const iq = calculateIQ(newAnswers, questions);
-      const catScores = {};
-      questions.forEach(q => {
-        if (!catScores[q.type]) catScores[q.type] = { correct: 0, total: 0 };
-        catScores[q.type].total++;
-        if (newAnswers[q.id] === q.answer) catScores[q.type].correct++;
-      });
-      const correctCount = questions.filter(q => newAnswers[q.id] === q.answer).length;
-      const bestCat = Object.entries(catScores).sort((a, b) => (b[1].correct / b[1].total) - (a[1].correct / a[1].total))[0]?.[0];
-      setResult({ iq, correctCount, catScores, bestCat, answers: newAnswers, time: Math.floor((Date.now() - startTime) / 1000) });
-      setPhase('results');
+      submitTest();
     }
+  };
+
+  const submitTest = () => {
+    setShowWarning(false);
+    const iq = calculateIQ(answers, questions);
+    const catScores = {};
+    questions.forEach(q => {
+      if (!catScores[q.type]) catScores[q.type] = { correct: 0, total: 0 };
+      catScores[q.type].total++;
+      if (answers[q.id] === q.answer) catScores[q.type].correct++;
+    });
+    const correctCount = questions.filter(q => answers[q.id] === q.answer).length;
+    const bestCat = Object.entries(catScores).sort((a, b) => (b[1].correct / b[1].total) - (a[1].correct / a[1].total))[0]?.[0];
+    setResult({ iq, correctCount, catScores, bestCat, answers: { ...answers }, time: Math.floor((Date.now() - startTime) / 1000) });
+    setPhase('results');
   };
 
   if (!mounted) return null;
@@ -223,7 +240,6 @@ export default function IQTest() {
 
         <style jsx>{`
           .page { max-width: 900px; margin: 0 auto; padding: 80px 20px 100px; }
-
           .hero { text-align: center; cursor: default; }
 
           .eyebrow {
@@ -233,12 +249,6 @@ export default function IQTest() {
             letter-spacing: 0.2em;
             margin-bottom: 20px;
             display: inline-block;
-            transition: all 0.4s ease;
-          }
-          .hero:hover .eyebrow {
-            color: var(--warm);
-            letter-spacing: 0.3em;
-            text-shadow: 0 0 10px rgba(255, 107, 53, 0.5);
           }
 
           h1 {
@@ -247,18 +257,9 @@ export default function IQTest() {
             color: #fff;
             margin-bottom: 16px;
             letter-spacing: -0.03em;
-            transition: all 0.4s ease;
           }
-          .hero:hover h1 { transform: translateY(-2px) scale(1.01); }
 
-          .highlight {
-            color: var(--warm);
-            transition: all 0.4s ease;
-          }
-          .hero:hover .highlight {
-            text-shadow: 0 0 25px rgba(255, 107, 53, 0.6);
-            filter: brightness(1.2);
-          }
+          .highlight { color: var(--warm); }
 
           .subtext {
             font-family: 'JetBrains Mono';
@@ -336,9 +337,7 @@ export default function IQTest() {
             box-shadow: 0 20px 40px rgba(0,0,0,0.4);
           }
 
-          .length-card--warm {
-            border-color: rgba(255, 107, 53, 0.2);
-          }
+          .length-card--warm { border-color: rgba(255, 107, 53, 0.2); }
           .length-card--warm:hover {
             border-color: rgba(255, 107, 53, 0.5);
             box-shadow: 0 20px 40px rgba(255, 107, 53, 0.12);
@@ -368,11 +367,7 @@ export default function IQTest() {
             line-height: 1;
           }
 
-          .length-name {
-            font-size: 16px;
-            font-weight: 700;
-            color: #fff;
-          }
+          .length-name { font-size: 16px; font-weight: 700; color: #fff; }
 
           .length-meta {
             font-family: 'JetBrains Mono';
@@ -410,18 +405,19 @@ export default function IQTest() {
 
   if (phase === 'test') {
     const q = questions[idx];
-    const progress = (idx / questions.length) * 100;
-    const letters = ['A', 'B', 'C', 'D'];
+    const currentAnswer = answers[q.id] || null;
+    const unansweredCount = questions.filter(qu => !answers[qu.id]).length;
+    const isLast = idx === questions.length - 1;
 
     return (
       <Layout>
         <div className="page">
 
-          {/* Top bar */}
+          {/* ── Top bar ── */}
           <div className="topbar">
             <div className="progress-wrap">
               <div className="progress-track">
-                <div className="progress-fill" style={{ width: `${progress}%` }} />
+                <div className="progress-fill" style={{ width: `${(idx / questions.length) * 100}%` }} />
               </div>
               <span className="counter">{idx + 1} / {questions.length}</span>
             </div>
@@ -431,7 +427,24 @@ export default function IQTest() {
             </div>
           </div>
 
-          {/* Question card */}
+          {/* ── Question dot map ── */}
+          <div className="dot-map">
+            {questions.map((qu, i) => {
+              let state = 'unanswered';
+              if (answers[qu.id]) state = 'answered';
+              if (i === idx) state = 'current';
+              return (
+                <button
+                  key={qu.id}
+                  className={`dot dot--${state}`}
+                  onClick={() => setIdx(i)}
+                  title={`Q${i + 1}${answers[qu.id] ? ' ✓' : ''}`}
+                />
+              );
+            })}
+          </div>
+
+          {/* ── Question card ── */}
           <div className="q-card">
             <div className="diff-row">
               {[1,2,3,4,5].map(d => (
@@ -445,31 +458,98 @@ export default function IQTest() {
             </div>
 
             <div className="options-grid">
-              {q.options.map((opt, i) => (
-                <button
-                  key={opt}
-                  className={`option ${selected === opt ? 'option--selected' : ''}`}
-                  onClick={() => setSelected(opt)}
-                >
-                  <span className="option-letter">{letters[i]}</span>
-                  <span className="option-text">{opt}</span>
-                </button>
-              ))}
+              {q.options.map((opt, i) => {
+                const letters = ['A', 'B', 'C', 'D'];
+                return (
+                  <button
+                    key={opt}
+                    className={`option ${currentAnswer === opt ? 'option--selected' : ''}`}
+                    onClick={() => handleSelect(opt)}
+                  >
+                    <span className="option-letter">{letters[i]}</span>
+                    <span className="option-text">{opt}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            <button
-              className={`next-btn ${selected ? 'next-btn--ready' : ''}`}
-              onClick={handleNext}
-              disabled={!selected}
-            >
-              {idx < questions.length - 1 ? 'Next Question →' : 'View Results →'}
-            </button>
+            {/* ── Navigation row ── */}
+            <div className="nav-row">
+              <button
+                className={`nav-btn nav-btn--back ${idx === 0 ? 'nav-btn--disabled' : ''}`}
+                onClick={handleBack}
+                disabled={idx === 0}
+              >
+                ← Back
+              </button>
+
+              <button
+                className="nav-btn nav-btn--skip"
+                onClick={handleForward}
+                disabled={isLast}
+                style={{ opacity: isLast ? 0.2 : 1 }}
+              >
+                Skip →
+              </button>
+
+              {isLast ? (
+                <button
+                  className="nav-btn nav-btn--finish"
+                  onClick={handleFinish}
+                >
+                  {unansweredCount > 0 ? `Finish (${unansweredCount} skipped)` : 'View Results →'}
+                </button>
+              ) : (
+                <button
+                  className={`nav-btn nav-btn--next ${currentAnswer ? 'nav-btn--next-ready' : ''}`}
+                  onClick={handleForward}
+                  disabled={!currentAnswer}
+                >
+                  Next →
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* ── Unanswered warning modal ── */}
+          {showWarning && (
+            <div className="modal-overlay" onClick={() => setShowWarning(false)}>
+              <div className="modal" onClick={e => e.stopPropagation()}>
+                <p className="modal-eyebrow">// UNANSWERED_QUESTIONS</p>
+                <h2 className="modal-title">
+                  {questions.filter(q => !answers[q.id]).length} question{questions.filter(q => !answers[q.id]).length > 1 ? 's' : ''} skipped
+                </h2>
+                <p className="modal-body">
+                  Unanswered questions count as incorrect and will affect your score. You can go back and answer them, or submit now.
+                </p>
+                <div className="modal-dots">
+                  {questions.map((qu, i) => !answers[qu.id] && (
+                    <button
+                      key={qu.id}
+                      className="modal-skip-pill"
+                      onClick={() => { setShowWarning(false); setIdx(i); }}
+                    >
+                      Q{i + 1}
+                    </button>
+                  ))}
+                </div>
+                <div className="modal-actions">
+                  <button className="modal-btn modal-btn--cancel" onClick={() => setShowWarning(false)}>
+                    Go Back
+                  </button>
+                  <button className="modal-btn modal-btn--confirm" onClick={submitTest}>
+                    Submit Anyway
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <style jsx>{`
             .page { max-width: 680px; margin: 0 auto; padding: 80px 20px 100px; }
 
-            .topbar { margin-bottom: 24px; }
+            /* Top bar */
+            .topbar { margin-bottom: 16px; }
 
             .progress-wrap {
               display: flex;
@@ -520,7 +600,44 @@ export default function IQTest() {
               color: rgba(255,255,255,0.2);
             }
 
-            /* Intentionally minimal vs brand cards — clinical focus mode */
+            /* Dot map */
+            .dot-map {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 6px;
+              margin-bottom: 20px;
+            }
+
+            .dot {
+              width: 10px;
+              height: 10px;
+              border-radius: 50%;
+              border: none;
+              cursor: pointer;
+              padding: 0;
+              transition: transform 0.15s ease, opacity 0.15s ease;
+              flex-shrink: 0;
+            }
+
+            .dot:hover { transform: scale(1.4); }
+
+            .dot--unanswered {
+              background: rgba(255,255,255,0.12);
+            }
+
+            .dot--answered {
+              background: var(--accent);
+              opacity: 0.6;
+            }
+
+            .dot--current {
+              background: var(--warm);
+              opacity: 1;
+              transform: scale(1.3);
+              box-shadow: 0 0 8px rgba(255,107,53,0.5);
+            }
+
+            /* Question card */
             .q-card {
               background: rgba(255,255,255,0.025);
               border: 1px solid rgba(255,255,255,0.07);
@@ -616,38 +733,192 @@ export default function IQTest() {
               line-height: 1.4;
             }
 
-            .next-btn {
-              width: 100%;
-              padding: 16px;
-              background: transparent;
-              border: 1px solid rgba(255,255,255,0.08);
-              border-radius: 12px;
-              color: rgba(255,255,255,0.2);
-              font-family: 'JetBrains Mono';
-              font-size: 12px;
-              font-weight: 700;
-              letter-spacing: 0.08em;
-              cursor: not-allowed;
-              transition: all 0.3s ease;
-              text-transform: uppercase;
+            /* Navigation row */
+            .nav-row {
+              display: grid;
+              grid-template-columns: 1fr 1fr 1.5fr;
+              gap: 10px;
             }
 
-            .next-btn--ready {
+            .nav-btn {
+              padding: 14px 12px;
+              border-radius: 12px;
+              font-family: 'JetBrains Mono';
+              font-size: 11px;
+              font-weight: 700;
+              letter-spacing: 0.08em;
+              cursor: pointer;
+              transition: all 0.2s ease;
+              text-transform: uppercase;
+              border: 1px solid rgba(255,255,255,0.08);
+              background: transparent;
+            }
+
+            /* Back */
+            .nav-btn--back {
+              color: rgba(255,255,255,0.35);
+            }
+            .nav-btn--back:hover:not(:disabled) {
+              color: rgba(255,255,255,0.7);
+              border-color: rgba(255,255,255,0.2);
+              background: rgba(255,255,255,0.04);
+            }
+            .nav-btn--disabled {
+              opacity: 0.2;
+              cursor: not-allowed;
+            }
+
+            /* Skip */
+            .nav-btn--skip {
+              color: rgba(255,255,255,0.25);
+            }
+            .nav-btn--skip:hover:not(:disabled) {
+              color: rgba(255,255,255,0.6);
+              border-color: rgba(255,255,255,0.15);
+              background: rgba(255,255,255,0.03);
+            }
+
+            /* Next (locked until answered) */
+            .nav-btn--next {
+              color: rgba(255,255,255,0.2);
+              cursor: not-allowed;
+            }
+            .nav-btn--next-ready {
               background: var(--accent);
               border-color: var(--accent);
               color: #000;
               cursor: pointer;
             }
-
-            .next-btn--ready:hover {
-              box-shadow: 0 0 25px rgba(125, 249, 255, 0.35);
+            .nav-btn--next-ready:hover {
+              box-shadow: 0 0 20px rgba(125, 249, 255, 0.3);
               transform: scale(1.01);
+            }
+
+            /* Finish */
+            .nav-btn--finish {
+              background: var(--warm);
+              border-color: var(--warm);
+              color: #000;
+              cursor: pointer;
+            }
+            .nav-btn--finish:hover {
+              box-shadow: 0 0 20px rgba(255, 107, 53, 0.35);
+              transform: scale(1.01);
+            }
+
+            /* Modal */
+            .modal-overlay {
+              position: fixed;
+              inset: 0;
+              background: rgba(0,0,0,0.75);
+              backdrop-filter: blur(6px);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              z-index: 100;
+              padding: 20px;
+            }
+
+            .modal {
+              background: #111;
+              border: 1px solid rgba(255,107,53,0.25);
+              border-radius: 24px;
+              padding: 44px 40px;
+              max-width: 480px;
+              width: 100%;
+            }
+
+            .modal-eyebrow {
+              font-family: 'JetBrains Mono';
+              font-size: 10px;
+              letter-spacing: 0.2em;
+              color: var(--warm);
+              margin-bottom: 12px;
+            }
+
+            .modal-title {
+              font-size: 28px;
+              font-weight: 800;
+              color: #fff;
+              margin-bottom: 14px;
+              letter-spacing: -0.02em;
+            }
+
+            .modal-body {
+              font-size: 14px;
+              color: var(--text-2);
+              line-height: 1.6;
+              margin-bottom: 20px;
+            }
+
+            .modal-dots {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 8px;
+              margin-bottom: 28px;
+            }
+
+            .modal-skip-pill {
+              padding: 6px 14px;
+              background: rgba(255,107,53,0.08);
+              border: 1px solid rgba(255,107,53,0.2);
+              border-radius: 999px;
+              font-family: 'JetBrains Mono';
+              font-size: 11px;
+              color: var(--warm);
+              cursor: pointer;
+              transition: all 0.2s;
+            }
+            .modal-skip-pill:hover {
+              background: rgba(255,107,53,0.15);
+              border-color: rgba(255,107,53,0.4);
+            }
+
+            .modal-actions {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 10px;
+            }
+
+            .modal-btn {
+              padding: 14px;
+              border-radius: 12px;
+              font-family: 'JetBrains Mono';
+              font-size: 11px;
+              font-weight: 700;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              cursor: pointer;
+              transition: all 0.2s;
+            }
+
+            .modal-btn--cancel {
+              background: transparent;
+              border: 1px solid rgba(255,255,255,0.1);
+              color: rgba(255,255,255,0.5);
+            }
+            .modal-btn--cancel:hover {
+              background: rgba(255,255,255,0.04);
+              color: rgba(255,255,255,0.8);
+            }
+
+            .modal-btn--confirm {
+              background: var(--warm);
+              border: 1px solid var(--warm);
+              color: #000;
+            }
+            .modal-btn--confirm:hover {
+              box-shadow: 0 0 20px rgba(255,107,53,0.35);
+              transform: scale(1.02);
             }
 
             @media (max-width: 520px) {
               .q-card { padding: 28px 20px; }
               .options-grid { grid-template-columns: 1fr; }
               .question-text { font-size: 17px; }
+              .nav-row { grid-template-columns: 1fr 1fr; }
+              .nav-btn--finish, .nav-btn--next { grid-column: 1 / -1; }
+              .modal { padding: 28px 20px; }
             }
           `}</style>
         </div>
@@ -778,7 +1049,6 @@ export default function IQTest() {
 
             .highlight { color: var(--warm); }
 
-            /* Score card — full brand treatment */
             .score-card {
               background: var(--surface);
               border: 1px solid var(--border);
@@ -826,7 +1096,6 @@ export default function IQTest() {
               line-height: 1.6;
             }
 
-            /* Stats */
             .stats-row {
               display: grid;
               grid-template-columns: 1fr 1fr 1fr;
@@ -867,7 +1136,6 @@ export default function IQTest() {
               letter-spacing: 0.15em;
             }
 
-            /* Best category */
             .best-cat-card {
               background: rgba(125,249,255,0.03);
               border: 1px solid rgba(125,249,255,0.1);
@@ -892,7 +1160,6 @@ export default function IQTest() {
               color: var(--accent);
             }
 
-            /* Section cards */
             .section-card {
               background: var(--surface);
               border: 1px solid var(--border);
@@ -910,7 +1177,6 @@ export default function IQTest() {
               margin-bottom: 24px;
             }
 
-            /* Breakdown bars */
             .bar-row {
               display: flex;
               align-items: center;
@@ -948,7 +1214,6 @@ export default function IQTest() {
               flex-shrink: 0;
             }
 
-            /* Question review */
             .review-row {
               padding-bottom: 14px;
               margin-bottom: 14px;
@@ -1016,7 +1281,6 @@ export default function IQTest() {
               margin: 0;
             }
 
-            /* Footer */
             .footer-actions {
               margin-top: 28px;
               display: flex;
