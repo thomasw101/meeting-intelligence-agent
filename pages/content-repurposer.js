@@ -186,22 +186,24 @@ export default function ContentRepurposer() {
   const handleRegen = async (platformId) => {
     if (!regenPrompt.trim()) return;
     setRegenLoading(true);
+    setError('');
     try {
       const currentContent = editedOutputs[platformId] ?? result?.outputs?.[platformId]?.content ?? '';
-      const res = await fetch('/api/repurpose', {
+      const res = await fetch('/api/regen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content: `Original content:\n${pasteContent || result?.sourceTitle || ''}\n\nCurrent ${platformId} version:\n${currentContent}\n\nUser instruction: ${regenPrompt}`,
-          platforms: [platformId],
+          platform: platformId,
+          currentContent,
+          instruction: regenPrompt,
           tone,
           audience,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      if (data.outputs?.[platformId]?.content) {
-        setEditedOutputs(prev => ({ ...prev, [platformId]: data.outputs[platformId].content }));
+      if (data.content) {
+        setEditedOutputs(prev => ({ ...prev, [platformId]: data.content }));
       }
       setRegenPrompt('');
       setRegenPlatform(null);
@@ -714,7 +716,7 @@ export default function ContentRepurposer() {
           .regen-status-lines { display: flex; flex-direction: column; gap: 8px; align-items: center; }
           .regen-line { font-family: 'JetBrains Mono'; font-size: 10px; letter-spacing: 0.12em; color: rgba(125,249,255,0.5); opacity: 0; animation: termAppear 0.4s ease forwards; }
           @keyframes spin { to { transform: rotate(360deg); } }
-          .regen-input { flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,107,53,0.3); border-radius: 10px; padding: 12px 16px; color: #fff; font-size: 13px; outline: none; font-family: inherit; transition: border-color 0.2s; }
+          .regen-input { flex: 1; min-width: 0; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,107,53,0.3); border-radius: 10px; padding: 12px 16px; color: #fff; font-size: 13px; outline: none; font-family: inherit; transition: border-color 0.2s; box-sizing: border-box; }
           .regen-input:focus { border-color: var(--warm); }
           .regen-input::placeholder { color: rgba(255,255,255,0.2); }
           .btn-regen-go { padding: 12px 20px; background: var(--warm); border: none; border-radius: 10px; color: #000; font-family: 'JetBrains Mono'; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
