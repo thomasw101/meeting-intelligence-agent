@@ -129,7 +129,7 @@ Respond ONLY with a valid JSON object. No preamble, no markdown, no explanation.
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages: [{ role: 'user', content: prompt }],
       }),
     });
@@ -138,7 +138,12 @@ Respond ONLY with a valid JSON object. No preamble, no markdown, no explanation.
     if (!response.ok) throw new Error(message.error?.message || 'Claude API error');
 
     const raw = message.content[0].text;
-    const clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    // Strip markdown fences
+    let clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    // If there's text before/after the JSON object, extract just the JSON
+    const jsonMatch = clean.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new SyntaxError('No JSON found in response');
+    clean = jsonMatch[0];
     const parsed = JSON.parse(clean);
 
     // Recalculate char counts
