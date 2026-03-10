@@ -20,11 +20,11 @@ export default function Dashboard() {
       github: 'https://github.com/thomasw101/meeting-intelligence-agent'
     },
     {
-      id: 'tool-2',
-      title: 'Coming Soon',
-      status: 'OFFLINE',
-      desc: 'Currently building. This module will be available in a future update.',
-      link: '#',
+      id: 'content-repurposer',
+      title: 'Content Repurposer',
+      status: 'ONLINE',
+      desc: 'Paste content or drop a URL. Select platforms. Generate six platform-native outputs in your tone.',
+      link: '/content-repurposer',
       github: null
     },
     {
