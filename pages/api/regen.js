@@ -2,40 +2,37 @@ export const config = {
   api: { responseLimit: false },
 };
 
-const PLATFORM_LIMITS = {
-  linkedin: 3000,
-  twitter: 2800,
-  instagram: 2200,
-  email: 1500,
-  youtube: 1000,
-  tiktok: 800,
-};
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { platform, currentContent, instruction, tone, audience } = req.body;
+  const { platform, format, currentContent, instruction, tone, length, limit } = req.body;
 
   if (!currentContent || !instruction || !platform) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
-  const limit = PLATFORM_LIMITS[platform] || 2000;
+  const toneGuide = {
+    professional: 'Expert, authoritative, polished.',
+    conversational: 'Warm, relatable, like talking to a smart friend.',
+    bold: 'Direct, confident, slightly provocative.',
+    educational: 'Clear, structured, informative.',
+    witty: 'Clever, light humour, engaging.',
+  };
 
-  const prompt = `You are an expert copywriter. You have written a ${platform} post and the user wants you to refine it.
+  const prompt = `You are an expert copywriter. Refine this ${platform} ${format || 'post'} based on the user's instruction.
 
-CURRENT ${platform.toUpperCase()} CONTENT:
+CURRENT CONTENT:
 ${currentContent}
 
-USER INSTRUCTION: ${instruction}
+USER INSTRUCTION: "${instruction}"
 
-TONE: ${tone || 'professional'}
-AUDIENCE: ${audience || 'General professional audience'}
-CHARACTER LIMIT: ${limit}
+TONE: ${toneGuide[tone] || toneGuide.professional}
+LENGTH PREFERENCE: ${length || 'medium'}
+CHARACTER LIMIT: ${limit || 2000}
 
-Rewrite the content following the user's instruction exactly. Keep the same platform format and style conventions for ${platform}. Stay within the character limit.
+Apply the instruction precisely. Keep the same platform format and conventions for ${platform} ${format || ''}. Stay within the character limit.
 
-Return ONLY the refined content — no explanation, no preamble, no quotes around it. Just the content itself.`;
+Return ONLY the refined content — no explanation, no preamble, no quotes. Just the content.`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -55,8 +52,7 @@ Return ONLY the refined content — no explanation, no preamble, no quotes aroun
     const data = await response.json();
     if (!response.ok) throw new Error(data.error?.message || 'Claude API error');
 
-    const content = data.content[0].text.trim();
-    return res.status(200).json({ content });
+    return res.status(200).json({ content: data.content[0].text.trim() });
   } catch (err) {
     console.error('Regen error:', err);
     return res.status(500).json({ error: err.message || 'Regen failed' });
