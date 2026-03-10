@@ -54,7 +54,7 @@ const QUESTION_BANK = [
   { id: 'wm4', type: 'memory', difficulty: 3, question: 'A shop sells apples for 30p\nand oranges for 45p.\n\nYou buy 3 apples and 2 oranges.\nWhat is the total?', options: ['£1.50', '£1.65', '£1.70', '£1.80'], answer: '£1.80', explanation: '3 × 30p = 90p. 2 × 45p = 90p. Total = £1.80.' },
   { id: 'wm5', type: 'memory', difficulty: 3, question: 'Reverse the word SMART.\nThen take the 3rd letter.\n\nWhat do you get?', options: ['A', 'M', 'R', 'T'], answer: 'A', explanation: 'SMART reversed = TRAMS. The 3rd letter is A.' },
   { id: 'wm6', type: 'memory', difficulty: 4, question: 'A train leaves at 09:45.\nIt takes 1h 35min to City A,\nthen 50min to City B.\n\nWhat time does it arrive at City B?', options: ['11:50', '12:00', '12:10', '12:20'], answer: '12:10', explanation: '09:45 + 1h35m = 11:20. 11:20 + 50m = 12:10.' },
-  { id: 'wm7', type: 'memory', difficulty: 5, question: 'Remember this sequence:\n7,  3,  9,  1,  5,  8,  2\n\nWhat is the sum of the\n3rd and 5th numbers?', options: ['10', '12', '14', '16'], answer: '14', explanation: '3rd number = 9. 5th number = 5. 9 + 5 = 14.' },
+  { id: 'wm7', type: 'memory', difficulty: 5, memoryReveal: '7,  3,  9,  1,  5,  8,  2', question: 'What is the sum of the\n3rd and 5th numbers?', options: ['10', '12', '14', '16'], answer: '14', explanation: '3rd number = 9. 5th number = 5. 9 + 5 = 14.' },
 ];
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -136,8 +136,26 @@ export default function IQTest() {
   const [result, setResult]             = useState(null);
   const [mounted, setMounted]           = useState(false);
   const [showWarning, setShowWarning]   = useState(false);
+  const [memoryRevealed, setMemoryRevealed] = useState(false);
+  const [memoryPulsing, setMemoryPulsing]   = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
+
+  // For memory questions with a sequence to memorise — show for 5s then hide with pulse warning
+  useEffect(() => {
+    if (phase !== 'test' || !questions.length) return;
+    const q = questions[idx];
+    if (q.memoryReveal) {
+      setMemoryRevealed(true);
+      setMemoryPulsing(false);
+      const pulseTimer = setTimeout(() => setMemoryPulsing(true), 3500);
+      const hideTimer  = setTimeout(() => { setMemoryRevealed(false); setMemoryPulsing(false); }, 5000);
+      return () => { clearTimeout(pulseTimer); clearTimeout(hideTimer); };
+    } else {
+      setMemoryRevealed(false);
+      setMemoryPulsing(false);
+    }
+  }, [idx, phase, questions]);
 
   useEffect(() => {
     if (phase !== 'test') return;
@@ -249,6 +267,12 @@ export default function IQTest() {
             letter-spacing: 0.2em;
             margin-bottom: 20px;
             display: inline-block;
+            transition: all 0.4s ease;
+          }
+          .hero:hover .eyebrow {
+            color: var(--warm);
+            letter-spacing: 0.3em;
+            text-shadow: 0 0 10px rgba(255, 107, 53, 0.5);
           }
 
           h1 {
@@ -257,9 +281,18 @@ export default function IQTest() {
             color: #fff;
             margin-bottom: 16px;
             letter-spacing: -0.03em;
+            transition: all 0.4s ease;
           }
+          .hero:hover h1 { transform: translateY(-2px) scale(1.01); }
 
-          .highlight { color: var(--warm); }
+          .highlight {
+            color: var(--warm);
+            transition: all 0.4s ease;
+          }
+          .hero:hover .highlight {
+            text-shadow: 0 0 25px rgba(255, 107, 53, 0.6);
+            filter: brightness(1.2);
+          }
 
           .subtext {
             font-family: 'JetBrains Mono';
@@ -406,7 +439,7 @@ export default function IQTest() {
   if (phase === 'test') {
     const q = questions[idx];
     const currentAnswer = answers[q.id] || null;
-    const unansweredCount = questions.filter(qu => !answers[qu.id]).length;
+    const unansweredCount = questions.filter((qu, i) => !answers[qu.id] && i !== idx).length;
     const isLast = idx === questions.length - 1;
 
     return (
@@ -454,7 +487,14 @@ export default function IQTest() {
             </div>
 
             <div className="question-wrap">
-              <p className="question-text">{q.question}</p>
+              {q.memoryReveal && (
+                <div className={`memory-reveal ${memoryPulsing ? 'memory-reveal--pulsing' : ''} ${!memoryRevealed ? 'memory-reveal--hidden' : ''}`}>
+                  <span className="memory-reveal-label">// MEMORISE</span>
+                  <span className="memory-reveal-seq">{q.memoryReveal}</span>
+                  <span className="memory-reveal-hint">{memoryPulsing ? 'Disappearing...' : 'Memorise this sequence'}</span>
+                </div>
+              )}
+              <p className="question-text" style={{ opacity: q.memoryReveal && memoryRevealed ? 0.25 : 1 }}>{q.question}</p>
             </div>
 
             <div className="options-grid">
@@ -672,6 +712,60 @@ export default function IQTest() {
               padding-bottom: 32px;
               border-bottom: 1px solid rgba(255,255,255,0.05);
             }
+
+            .memory-reveal {
+              background: rgba(125,249,255,0.05);
+              border: 1px solid rgba(125,249,255,0.2);
+              border-radius: 12px;
+              padding: 20px 24px;
+              margin-bottom: 24px;
+              display: flex;
+              flex-direction: column;
+              gap: 6px;
+              transition: all 0.5s ease;
+            }
+
+            .memory-reveal--pulsing {
+              border-color: rgba(255,107,53,0.5);
+              background: rgba(255,107,53,0.06);
+              animation: memPulse 0.5s ease-in-out infinite alternate;
+            }
+
+            .memory-reveal--hidden {
+              opacity: 0;
+              pointer-events: none;
+              transform: scale(0.97);
+            }
+
+            @keyframes memPulse {
+              from { box-shadow: 0 0 0 rgba(255,107,53,0); }
+              to   { box-shadow: 0 0 16px rgba(255,107,53,0.3); }
+            }
+
+            .memory-reveal-label {
+              font-family: 'JetBrains Mono';
+              font-size: 9px;
+              letter-spacing: 0.2em;
+              color: var(--accent);
+            }
+
+            .memory-reveal--pulsing .memory-reveal-label { color: var(--warm); }
+
+            .memory-reveal-seq {
+              font-size: 24px;
+              font-weight: 800;
+              color: #fff;
+              letter-spacing: 0.05em;
+            }
+
+            .memory-reveal-hint {
+              font-family: 'JetBrains Mono';
+              font-size: 9px;
+              color: rgba(255,255,255,0.3);
+              letter-spacing: 0.1em;
+            }
+
+            .memory-reveal--pulsing .memory-reveal-hint { color: var(--warm); }
 
             .question-text {
               font-size: 20px;
