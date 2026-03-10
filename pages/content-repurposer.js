@@ -490,12 +490,26 @@ export default function ContentRepurposer() {
                   )}
 
                   {/* Editable content */}
+                  {regenLoading && regenPlatform === activeOutputPlatform ? (
+                    <div className="regen-loading">
+                      <div className="regen-spinner">
+                        <div className="regen-ring" />
+                        <div className="regen-ring regen-ring-2" />
+                      </div>
+                      <div className="regen-status-lines">
+                        <div className="regen-line" style={{ animationDelay: '0s' }}>// ANALYSING CURRENT VERSION...</div>
+                        <div className="regen-line" style={{ animationDelay: '0.8s' }}>// APPLYING INSTRUCTION...</div>
+                        <div className="regen-line" style={{ animationDelay: '1.6s' }}>// REGENERATING OUTPUT...</div>
+                      </div>
+                    </div>
+                  ) : (
                   <textarea
                     className="output-textarea"
                     value={content}
                     onChange={e => setEditedOutputs(prev => ({ ...prev, [activeOutputPlatform]: e.target.value }))}
                     rows={Math.max(8, content.split('\n').length + 2)}
                   />
+                  )}
 
                   {/* Char count bar */}
                   <div className="char-bar-wrap">
@@ -693,7 +707,13 @@ export default function ContentRepurposer() {
           .char-bar-fill { height: 100%; border-radius: 999px; transition: width 0.3s ease, background 0.3s ease; }
           .char-count { font-family: 'JetBrains Mono'; font-size: 10px; white-space: nowrap; transition: color 0.3s; }
 
-          .regen-bar { display: flex; gap: 8px; margin-top: 16px; }
+          .regen-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; min-height: 200px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 40px; }
+          .regen-spinner { position: relative; width: 44px; height: 44px; }
+          .regen-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--accent); animation: spin 1s linear infinite; }
+          .regen-ring-2 { inset: 7px; border-top-color: var(--warm); animation-duration: 1.5s; animation-direction: reverse; }
+          .regen-status-lines { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+          .regen-line { font-family: 'JetBrains Mono'; font-size: 10px; letter-spacing: 0.12em; color: rgba(125,249,255,0.5); opacity: 0; animation: termAppear 0.4s ease forwards; }
+          @keyframes spin { to { transform: rotate(360deg); } }
           .regen-input { flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,107,53,0.3); border-radius: 10px; padding: 12px 16px; color: #fff; font-size: 13px; outline: none; font-family: inherit; transition: border-color 0.2s; }
           .regen-input:focus { border-color: var(--warm); }
           .regen-input::placeholder { color: rgba(255,255,255,0.2); }
