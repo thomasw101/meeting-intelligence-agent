@@ -28,12 +28,12 @@ export default function Dashboard() {
       github: 'https://github.com/thomasw101/Content-Repurposer'
     },
     {
-      id: 'tool-3',
-      title: 'Coming Soon',
-      status: 'OFFLINE',
-      desc: 'Currently building. This module will be available in a future update.',
-      link: '#',
-      github: null
+      id: 'iq-test',
+      title: 'IQ Test',
+      status: 'ONLINE',
+      desc: 'Free, accurate cognitive assessment. Pattern recognition, logic, verbal reasoning and more. No paywall — instant results.',
+      link: '/iq-test',
+      github: 'https://github.com/thomasw101/IQ-test'
     },
     {
       id: 'tool-4',
@@ -77,7 +77,6 @@ export default function Dashboard() {
                 </button>
               )}
 
-              {/* View Source */}
               {tool.github ? (
                 <a href={tool.github} target="_blank" rel="noopener noreferrer" className="btn-source">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
