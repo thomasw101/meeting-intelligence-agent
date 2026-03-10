@@ -25,7 +25,7 @@ export default function Dashboard() {
       status: 'ONLINE',
       desc: 'Paste content or drop a URL. Select platforms. Generate six platform-native outputs in your tone.',
       link: '/content-repurposer',
-      github: null
+      github: 'https://github.com/thomasw101/Content-Repurposer'
     },
     {
       id: 'tool-3',
