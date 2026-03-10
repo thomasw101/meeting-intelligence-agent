@@ -1,6 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk';
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+export const config = {
+  api: { responseLimit: false },
+};
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -120,11 +120,22 @@ Respond ONLY with a valid JSON object. No preamble, no markdown backticks, no ex
 For charCount, calculate the actual character count of the content string.`;
 
   try {
-    const message = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4000,
-      messages: [{ role: 'user', content: prompt }],
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }],
+      }),
     });
+
+    const message = await response.json();
+    if (!response.ok) throw new Error(message.error?.message || 'Claude API error');
 
     const raw = message.content[0].text;
     const clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
