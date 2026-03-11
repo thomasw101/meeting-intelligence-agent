@@ -224,21 +224,30 @@ export default function IQTest() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  // For memory questions with a sequence to memorise — show for 5s then hide with pulse warning
+  // For memory questions — show sequence for 5s then hide with pulse warning
+  // Use q.id as the key so this only fires when the actual question changes
   useEffect(() => {
     if (phase !== 'test' || !questions.length) return;
     const q = questions[idx];
+    if (!q) return;
     if (q.memoryReveal) {
       setMemoryRevealed(true);
       setMemoryPulsing(false);
       const pulseTimer = setTimeout(() => setMemoryPulsing(true), 3500);
-      const hideTimer  = setTimeout(() => { setMemoryRevealed(false); setMemoryPulsing(false); }, 5000);
-      return () => { clearTimeout(pulseTimer); clearTimeout(hideTimer); };
+      const hideTimer  = setTimeout(() => {
+        setMemoryRevealed(false);
+        setMemoryPulsing(false);
+      }, 5000);
+      return () => {
+        clearTimeout(pulseTimer);
+        clearTimeout(hideTimer);
+      };
     } else {
       setMemoryRevealed(false);
       setMemoryPulsing(false);
     }
-  }, [idx, phase, questions]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idx, phase, questions.length]);
 
   useEffect(() => {
     if (phase !== 'test') return;
