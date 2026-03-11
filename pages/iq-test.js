@@ -1,6 +1,209 @@
 import Layout from '../components/Layout';
 import { useState, useEffect } from 'react';
 
+// ─── SVG VISUALS ──────────────────────────────────────────────────────────────
+
+const T = '#7DF9FF';   // teal accent
+const W = '#FF6B35';   // warm orange
+const DIM = 'rgba(255,255,255,0.12)';
+const MID = 'rgba(255,255,255,0.35)';
+
+// Clock face: pass hour (0-12) and minute (0-59)
+function ClockSVG({ hour, minute }) {
+  const cx = 90, cy = 90, r = 72;
+  const minAngle  = (minute / 60) * 360 - 90;
+  const hourAngle = ((hour % 12) / 12) * 360 + (minute / 60) * 30 - 90;
+  const toXY = (angle, len) => [
+    cx + Math.cos(angle * Math.PI / 180) * len,
+    cy + Math.sin(angle * Math.PI / 180) * len,
+  ];
+  const [mx, my] = toXY(minAngle, 52);
+  const [hx, hy] = toXY(hourAngle, 36);
+  return (
+    <svg width="180" height="180" viewBox="0 0 180 180">
+      <circle cx={cx} cy={cy} r={r} fill="rgba(125,249,255,0.06)" stroke={T} strokeWidth="2"/>
+      {[12,1,2,3,4,5,6,7,8,9,10,11].map((n, i) => {
+        const a = (i / 12) * 360 - 90;
+        const [tx, ty] = toXY(a, 58);
+        return <text key={n} x={tx} y={ty} textAnchor="middle" dominantBaseline="central"
+          fontSize="10" fill={MID} fontFamily="JetBrains Mono">{n}</text>;
+      })}
+      {/* tick marks */}
+      {Array.from({length: 60}, (_, i) => {
+        const a = (i / 60) * 360 - 90;
+        const inner = i % 5 === 0 ? 62 : 66;
+        const [x1,y1] = toXY(a, inner);
+        const [x2,y2] = toXY(a, 70);
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={i%5===0?MID:DIM} strokeWidth={i%5===0?1.5:0.75}/>;
+      })}
+      {/* minute hand */}
+      <line x1={cx} y1={cy} x2={mx} y2={my} stroke={T} strokeWidth="2.5" strokeLinecap="round"/>
+      {/* hour hand */}
+      <line x1={cx} y1={cy} x2={hx} y2={hy} stroke={W} strokeWidth="4" strokeLinecap="round"/>
+      <circle cx={cx} cy={cy} r="4" fill={W}/>
+    </svg>
+  );
+}
+
+// Compass with an arrow pointing in a direction
+function CompassSVG({ facing }) {
+  const dirs = { N: -90, E: 0, S: 90, W: 180 };
+  const angle = dirs[facing] ?? 0;
+  const cx = 90, cy = 90, r = 65;
+  return (
+    <svg width="180" height="180" viewBox="0 0 180 180">
+      <circle cx={cx} cy={cy} r={r} fill="rgba(255,107,53,0.06)" stroke={W} strokeWidth="1.5"/>
+      {['N','E','S','W'].map((d, i) => {
+        const a = (i / 4) * 360 - 90;
+        const tx = cx + Math.cos(a * Math.PI/180) * 50;
+        const ty = cy + Math.sin(a * Math.PI/180) * 50;
+        return <text key={d} x={tx} y={ty} textAnchor="middle" dominantBaseline="central"
+          fontSize="13" fontWeight="700" fill={d === facing ? W : MID} fontFamily="JetBrains Mono">{d}</text>;
+      })}
+      {/* arrow */}
+      <g transform={`rotate(${angle}, ${cx}, ${cy})`}>
+        <polygon points={`${cx},${cy-45} ${cx-8},${cy+10} ${cx},${cy+5} ${cx+8},${cy+10}`} fill={W}/>
+      </g>
+      <circle cx={cx} cy={cy} r="5" fill={W}/>
+    </svg>
+  );
+}
+
+// Isometric cube wireframe
+function CubeSVG({ highlight = null }) {
+  // highlight: 'top' | 'front' | 'side' | null
+  const faceTop   = highlight === 'top'   ? T   : 'rgba(125,249,255,0.12)';
+  const faceFront = highlight === 'front' ? W   : 'rgba(255,107,53,0.10)';
+  const faceSide  = highlight === 'side'  ? T   : 'rgba(125,249,255,0.07)';
+  return (
+    <svg width="180" height="160" viewBox="0 0 180 160">
+      {/* top face */}
+      <polygon points="90,20 150,55 90,90 30,55" fill={faceTop} stroke={T} strokeWidth="1.5"/>
+      {/* front face */}
+      <polygon points="30,55 90,90 90,140 30,105" fill={faceFront} stroke={W} strokeWidth="1.5"/>
+      {/* right face */}
+      <polygon points="90,90 150,55 150,105 90,140" fill={faceSide} stroke={T} strokeWidth="1.5"/>
+    </svg>
+  );
+}
+
+// 3x3 matrix grid for pattern questions
+// cells: array of 9 values — use null for the missing cell (shown as ?)
+function MatrixSVG({ cells, cellColor }) {
+  const size = 52, gap = 4, pad = 12;
+  const colors = Array.isArray(cellColor) ? cellColor : Array(9).fill(cellColor || T);
+  return (
+    <svg width="192" height="192" viewBox="0 0 192 192">
+      {cells.map((cell, i) => {
+        const col = i % 3, row = Math.floor(i / 3);
+        const x = pad + col * (size + gap);
+        const y = pad + row * (size + gap);
+        const isMissing = cell === null;
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={size} height={size} rx="6"
+              fill={isMissing ? 'rgba(255,107,53,0.1)' : 'rgba(255,255,255,0.05)'}
+              stroke={isMissing ? W : DIM} strokeWidth={isMissing ? 2 : 1}
+              strokeDasharray={isMissing ? '4 3' : 'none'}/>
+            {isMissing
+              ? <text x={x+size/2} y={y+size/2} textAnchor="middle" dominantBaseline="central"
+                  fontSize="22" fontWeight="800" fill={W} fontFamily="JetBrains Mono">?</text>
+              : <text x={x+size/2} y={y+size/2} textAnchor="middle" dominantBaseline="central"
+                  fontSize="15" fontWeight="700" fill={colors[i]} fontFamily="JetBrains Mono">{cell}</text>
+            }
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// 2-column grid for 2x3 patterns
+function Matrix2SVG({ cells }) {
+  const w = 72, h = 56, gap = 4, pad = 16;
+  return (
+    <svg width="180" height="190" viewBox="0 0 180 190">
+      {cells.map((cell, i) => {
+        const col = i % 2, row = Math.floor(i / 2);
+        const x = pad + col * (w + gap);
+        const y = pad + row * (h + gap);
+        const isMissing = cell === null;
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={w} height={h} rx="6"
+              fill={isMissing ? 'rgba(255,107,53,0.1)' : 'rgba(255,255,255,0.05)'}
+              stroke={isMissing ? W : DIM} strokeWidth={isMissing ? 2 : 1}
+              strokeDasharray={isMissing ? '4 3' : 'none'}/>
+            {isMissing
+              ? <text x={x+w/2} y={y+h/2} textAnchor="middle" dominantBaseline="central"
+                  fontSize="20" fontWeight="800" fill={W} fontFamily="JetBrains Mono">?</text>
+              : <text x={x+w/2} y={y+h/2} textAnchor="middle" dominantBaseline="central"
+                  fontSize="15" fontWeight="700" fill={T} fontFamily="JetBrains Mono">{cell}</text>
+            }
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// Square pyramid
+function PyramidSVG() {
+  return (
+    <svg width="180" height="160" viewBox="0 0 180 160">
+      {/* base parallelogram */}
+      <polygon points="40,120 90,100 140,120 90,140" fill="rgba(255,107,53,0.12)" stroke={W} strokeWidth="1.5"/>
+      {/* left face */}
+      <polygon points="40,120 90,140 90,40" fill="rgba(125,249,255,0.10)" stroke={T} strokeWidth="1.5"/>
+      {/* right face */}
+      <polygon points="90,140 140,120 90,40" fill="rgba(125,249,255,0.06)" stroke={T} strokeWidth="1.5"/>
+      {/* front-left edge */}
+      <line x1="40" y1="120" x2="90" y2="40" stroke={T} strokeWidth="1.5"/>
+      {/* apex dot */}
+      <circle cx="90" cy="40" r="4" fill={W}/>
+    </svg>
+  );
+}
+
+// Direction path SVG for navigation questions
+function PathSVG({ steps }) {
+  // steps: [{dir: 'N'|'S'|'E'|'W', label: '3mi'}]
+  const dirMap = { N: [0,-1], S: [0,1], E: [1,0], W: [-1,0] };
+  const scale = 45;
+  let cx = 90, cy = 130;
+  const points = [{x: cx, y: cy}];
+  const labels = [];
+  steps.forEach(({dir, label}) => {
+    const [dx, dy] = dirMap[dir];
+    const nx = cx + dx * scale, ny = cy + dy * scale;
+    labels.push({x: (cx+nx)/2 + (dy !== 0 ? 12 : 0), y: (cy+ny)/2 + (dx !== 0 ? -8 : 0), text: label});
+    cx = nx; cy = ny;
+    points.push({x: cx, y: cy});
+  });
+  const pathD = points.map((p,i) => `${i===0?'M':'L'}${p.x},${p.y}`).join(' ');
+  return (
+    <svg width="180" height="160" viewBox="0 0 180 160">
+      {/* compass labels */}
+      <text x="90" y="10" textAnchor="middle" fontSize="10" fill={MID} fontFamily="JetBrains Mono">N</text>
+      <text x="170" y="90" textAnchor="middle" fontSize="10" fill={MID} fontFamily="JetBrains Mono">E</text>
+      {/* path */}
+      <path d={pathD} fill="none" stroke={T} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+      {/* start dot */}
+      <circle cx={points[0].x} cy={points[0].y} r="5" fill={W}/>
+      {/* end dot */}
+      <circle cx={points[points.length-1].x} cy={points[points.length-1].y} r="5" fill={T}/>
+      {/* dashed line back to start */}
+      <line x1={points[points.length-1].x} y1={points[points.length-1].y}
+            x2={points[0].x} y2={points[0].y}
+            stroke={W} strokeWidth="1.5" strokeDasharray="4 3"/>
+      {labels.map((l,i) => (
+        <text key={i} x={l.x} y={l.y} textAnchor="middle" fontSize="9" fill={T} fontFamily="JetBrains Mono">{l.text}</text>
+      ))}
+      <text x={points[0].x - 10} y={points[0].y + 4} fontSize="8" fill={W} fontFamily="JetBrains Mono">START</text>
+    </svg>
+  );
+}
+
 // ─── QUESTION BANK ────────────────────────────────────────────────────────────
 
 const QUESTION_BANK = [
@@ -43,19 +246,19 @@ const QUESTION_BANK = [
   { id: 'va15', type: 'verbal', difficulty: 5, question: 'Heuristic is to Algorithm\nas\nIntuition is to ?', options: ['Emotion', 'Memory', 'Logic', 'Instinct'], answer: 'Logic', explanation: 'A heuristic is a practical shortcut vs a formal algorithm. Intuition is a gut-feel shortcut vs formal logic.' },
 
   // ── PATTERN RECOGNITION (14 questions) ─────────────────────────────────────
-  { id: 'pr1',  type: 'pattern', difficulty: 1, question: 'Which number completes the grid?\n\n[ 2  |  4 ]\n[ 3  |  ? ]', options: ['5', '6', '7', '8'], answer: '6', explanation: 'The right column doubles the left. 3 × 2 = 6.' },
-  { id: 'pr2',  type: 'pattern', difficulty: 1, question: 'Which number completes the grid?\n\n[ 1  |  2  |  3 ]\n[ 4  |  5  |  6 ]\n[ 7  |  8  |  ? ]', options: ['8', '9', '10', '11'], answer: '9', explanation: 'Sequential numbers in a 3×3 grid. After 8 comes 9.' },
-  { id: 'pr3',  type: 'pattern', difficulty: 2, question: 'Which number completes the grid?\n\n[ 9   |  3 ]\n[ 16  |  4 ]\n[ 25  |  ? ]', options: ['4', '5', '6', '7'], answer: '5', explanation: 'The right column is the square root of the left. √25 = 5.' },
-  { id: 'pr4',  type: 'pattern', difficulty: 2, question: 'Which number completes the grid?\n\n[ 3  |  6 ]\n[ 5  |  10 ]\n[ 8  |  ? ]', options: ['13', '14', '15', '16'], answer: '16', explanation: 'The right column doubles the left. 8 × 2 = 16.' },
-  { id: 'pr5',  type: 'pattern', difficulty: 3, question: 'Which number completes the grid?\n\n[ 2  |  4  |  8  ]\n[ 3  |  9  |  27 ]\n[ 4  |  16 |  ?  ]', options: ['32', '48', '64', '128'], answer: '64', explanation: 'Each row: n, n², n³. So 4, 16, 4³ = 64.' },
-  { id: 'pr6',  type: 'pattern', difficulty: 3, question: 'Which number completes the grid?\n\n[ 1  |  4  |  9  ]\n[ 16 |  25 |  36 ]\n[ 49 |  64 |  ?  ]', options: ['72', '81', '100', '121'], answer: '81', explanation: 'Perfect squares in order. The 9th is 9² = 81.' },
-  { id: 'pr7',  type: 'pattern', difficulty: 3, question: 'Which number completes the grid?\n\n[ 1  |  2  |  3 ]\n[ 2  |  4  |  6 ]\n[ 3  |  6  |  ? ]', options: ['7', '8', '9', '10'], answer: '9', explanation: 'Each cell = row × column. Row 3, Col 3: 3 × 3 = 9.' },
-  { id: 'pr8',  type: 'pattern', difficulty: 4, question: 'Which number completes the grid?\n\n[ 3  |  6  |  18 ]\n[ 4  |  8  |  32 ]\n[ 5  |  10 |  ?  ]', options: ['15', '25', '50', '100'], answer: '50', explanation: 'Pattern: n, 2n, 2n×n. So 5, 10, 10×5 = 50.' },
-  { id: 'pr9',  type: 'pattern', difficulty: 4, question: 'Which number completes the grid?\n\n[ 2  |  4  |  16 ]\n[ 3  |  6  |  36 ]\n[ 4  |  8  |  ?  ]', options: ['32', '48', '56', '64'], answer: '64', explanation: 'Pattern: n, 2n, (2n)². So 4, 8, 8² = 64.' },
-  { id: 'pr10', type: 'pattern', difficulty: 4, question: 'Which number completes the grid?\n\n[ 10 |  5  |  15 ]\n[ 8  |  4  |  12 ]\n[ 6  |  3  |  ?  ]', options: ['7', '8', '9', '10'], answer: '9', explanation: 'Column 3 = Column 1 + Column 2. 6 + 3 = 9.' },
-  { id: 'pr11', type: 'pattern', difficulty: 5, question: 'Which number completes the grid?\n\n[ 2  |  5  |  11 ]\n[ 3  |  7  |  15 ]\n[ 4  |  9  |  ?  ]', options: ['17', '18', '19', '20'], answer: '19', explanation: 'Pattern: n, (2n+1), (4n+3). So 4, 9, (4×4)+3 = 19.' },
-  { id: 'pr12', type: 'pattern', difficulty: 5, question: 'Which number completes the grid?\n\n[ 1  |  3  |  9  ]\n[ 2  |  6  |  18 ]\n[ 3  |  9  |  ?  ]', options: ['18', '24', '27', '30'], answer: '27', explanation: 'Each row: n, 3n, 9n. So 3, 9, 9×3 = 27.' },
-  { id: 'pr13', type: 'pattern', difficulty: 5, question: 'Which number completes the grid?\n\n[ 6  |  3  |  9  ]\n[ 8  |  4  |  12 ]\n[ 10 |  5  |  ?  ]', options: ['12', '14', '15', '16'], answer: '15', explanation: 'Column 3 = Column 1 + Column 2. 10 + 5 = 15.' },
+  { id: 'pr1',  type: 'pattern', difficulty: 1, visual: () => <Matrix2SVG cells={['2','4','3',null]}/>, question: 'Which number completes the grid?', options: ['5', '6', '7', '8'], answer: '6', explanation: 'The right column doubles the left. 3 × 2 = 6.' },
+  { id: 'pr2',  type: 'pattern', difficulty: 1, visual: () => <MatrixSVG cells={['1','2','3','4','5','6','7','8',null]}/>, question: 'Which number completes the grid?', options: ['8', '9', '10', '11'], answer: '9', explanation: 'Sequential numbers in a 3×3 grid. After 8 comes 9.' },
+  { id: 'pr3',  type: 'pattern', difficulty: 2, visual: () => <Matrix2SVG cells={['9','3','16','4','25',null]}/>, question: 'Which number completes the grid?', options: ['4', '5', '6', '7'], answer: '5', explanation: 'The right column is the square root of the left. √25 = 5.' },
+  { id: 'pr4',  type: 'pattern', difficulty: 2, visual: () => <Matrix2SVG cells={['3','6','5','10','8',null]}/>, question: 'Which number completes the grid?', options: ['13', '14', '15', '16'], answer: '16', explanation: 'The right column doubles the left. 8 × 2 = 16.' },
+  { id: 'pr5',  type: 'pattern', difficulty: 3, visual: () => <MatrixSVG cells={['2','4','8','3','9','27','4','16',null]}/>, question: 'Which number completes the grid?', options: ['32', '48', '64', '128'], answer: '64', explanation: 'Each row: n, n², n³. So 4, 16, 4³ = 64.' },
+  { id: 'pr6',  type: 'pattern', difficulty: 3, visual: () => <MatrixSVG cells={['1','4','9','16','25','36','49','64',null]}/>, question: 'Which number completes the grid?', options: ['72', '81', '100', '121'], answer: '81', explanation: 'Perfect squares in order. The 9th is 9² = 81.' },
+  { id: 'pr7',  type: 'pattern', difficulty: 3, visual: () => <MatrixSVG cells={['1','2','3','2','4','6','3','6',null]}/>, question: 'Which number completes the grid?', options: ['7', '8', '9', '10'], answer: '9', explanation: 'Each cell = row × column. Row 3, Col 3: 3 × 3 = 9.' },
+  { id: 'pr8',  type: 'pattern', difficulty: 4, visual: () => <MatrixSVG cells={['3','6','18','4','8','32','5','10',null]}/>, question: 'Which number completes the grid?', options: ['15', '25', '50', '100'], answer: '50', explanation: 'Pattern: n, 2n, 2n×n. So 5, 10, 10×5 = 50.' },
+  { id: 'pr9',  type: 'pattern', difficulty: 4, visual: () => <MatrixSVG cells={['2','4','16','3','6','36','4','8',null]}/>, question: 'Which number completes the grid?', options: ['32', '48', '56', '64'], answer: '64', explanation: 'Pattern: n, 2n, (2n)². So 4, 8, 8² = 64.' },
+  { id: 'pr10', type: 'pattern', difficulty: 4, visual: () => <MatrixSVG cells={['10','5','15','8','4','12','6','3',null]}/>, question: 'Which number completes the grid?', options: ['7', '8', '9', '10'], answer: '9', explanation: 'Column 3 = Column 1 + Column 2. 6 + 3 = 9.' },
+  { id: 'pr11', type: 'pattern', difficulty: 5, visual: () => <MatrixSVG cells={['2','5','11','3','7','15','4','9',null]}/>, question: 'Which number completes the grid?', options: ['17', '18', '19', '20'], answer: '19', explanation: 'Pattern: n, (2n+1), (4n+3). So 4, 9, (4×4)+3 = 19.' },
+  { id: 'pr12', type: 'pattern', difficulty: 5, visual: () => <MatrixSVG cells={['1','3','9','2','6','18','3','9',null]}/>, question: 'Which number completes the grid?', options: ['18', '24', '27', '30'], answer: '27', explanation: 'Each row: n, 3n, 9n. So 3, 9, 9×3 = 27.' },
+  { id: 'pr13', type: 'pattern', difficulty: 5, visual: () => <MatrixSVG cells={['6','3','9','8','4','12','10','5',null]}/>, question: 'Which number completes the grid?', options: ['12', '14', '15', '16'], answer: '15', explanation: 'Column 3 = Column 1 + Column 2. 10 + 5 = 15.' },
   { id: 'pr14', type: 'pattern', difficulty: 5, question: 'Which number is missing?\n\n16,  ?,  4,  2,  1', options: ['6', '8', '10', '12'], answer: '8', explanation: 'Each term is halved. 16 ÷ 2 = 8, 8 ÷ 2 = 4, 4 ÷ 2 = 2, 2 ÷ 2 = 1.' },
 
   // ── LOGICAL REASONING (14 questions) ───────────────────────────────────────
@@ -92,18 +295,26 @@ const QUESTION_BANK = [
 
   // ── SPATIAL REASONING (14 questions) ───────────────────────────────────────
   { id: 'sr1',  type: 'spatial', difficulty: 1, question: 'A square piece of paper is folded in half once, then cut with one straight cut across the middle.\n\nHow many pieces are there when unfolded?', options: ['2', '3', '4', '5'], answer: '3', explanation: 'Folding in half and cutting across creates 3 pieces — the two outer halves and a cut-through middle section.' },
-  { id: 'sr2',  type: 'spatial', difficulty: 1, question: 'You are facing North.\nYou turn 90° clockwise.\nThen turn 180° clockwise.\n\nWhich direction are you facing?', options: ['North', 'South', 'East', 'West'], answer: 'West', explanation: 'North → 90° clockwise = East → 180° clockwise = West.' },
-  { id: 'sr3',  type: 'spatial', difficulty: 2, question: 'How many faces does a cube have?', options: ['4', '5', '6', '8'], answer: '6', explanation: 'A cube has 6 faces: top, bottom, front, back, left, right.' },
-  { id: 'sr4',  type: 'spatial', difficulty: 2, question: 'A clock shows 3:00.\nWhat is the angle between\nthe hour and minute hands?', options: ['60°', '75°', '90°', '120°'], answer: '90°', explanation: 'At 3:00, the minute hand points to 12 and the hour hand to 3. That is exactly 90°.' },
-  { id: 'sr5',  type: 'spatial', difficulty: 2, question: 'You are facing South.\nYou turn left twice (each turn is 90°).\n\nWhich direction are you now facing?', options: ['North', 'South', 'East', 'West'], answer: 'North', explanation: 'South → turn left 90° = East → turn left 90° = North.' },
-  { id: 'sr6',  type: 'spatial', difficulty: 3, question: 'A 3×3×3 cube is painted red on all outside faces, then cut into 27 smaller cubes.\n\nHow many small cubes have NO red faces?', options: ['0', '1', '4', '8'], answer: '1', explanation: 'Only the single cube at the very centre has no painted faces.' },
-  { id: 'sr7',  type: 'spatial', difficulty: 3, question: 'A rectangle is 8cm wide and 6cm tall.\nIt is cut diagonally from corner to corner.\n\nWhat is the length of the diagonal cut?', options: ['8cm', '9cm', '10cm', '12cm'], answer: '10cm', explanation: 'Pythagoras: √(8² + 6²) = √(64 + 36) = √100 = 10cm.' },
-  { id: 'sr8',  type: 'spatial', difficulty: 3, question: 'How many edges does a cube have?', options: ['6', '8', '12', '16'], answer: '12', explanation: 'A cube has 12 edges: 4 on top, 4 on bottom, and 4 vertical edges connecting them.' },
-  { id: 'sr9',  type: 'spatial', difficulty: 4, question: 'A shape has 5 faces, 5 vertices and 8 edges.\n\nWhat shape is it?', options: ['Cube', 'Triangular prism', 'Square pyramid', 'Tetrahedron'], answer: 'Square pyramid', explanation: 'A square pyramid has a square base (1 face) + 4 triangular faces = 5 faces, 5 vertices, 8 edges.' },
-  { id: 'sr10', type: 'spatial', difficulty: 4, question: 'You walk 3 miles North,\nthen 4 miles East.\n\nHow far are you from your starting point in a straight line?', options: ['5 miles', '6 miles', '7 miles', '8 miles'], answer: '5 miles', explanation: 'Pythagoras: √(3² + 4²) = √(9 + 16) = √25 = 5 miles.' },
-  { id: 'sr11', type: 'spatial', difficulty: 4, question: 'A cube is 3×3×3.\nSmaller 1×1×1 cubes are removed from all 8 corners.\n\nHow many small cubes remain?', options: ['18', '19', '20', '21'], answer: '19', explanation: '27 total − 8 corner cubes = 19 remaining.' },
-  { id: 'sr12', type: 'spatial', difficulty: 5, question: 'A 3×3×3 cube is painted red on all outside faces, then cut into 27 smaller cubes.\n\nHow many small cubes have exactly 2 red faces?', options: ['8', '12', '16', '20'], answer: '12', explanation: 'Edge pieces (not corners) have exactly 2 painted faces. A cube has 12 edges, each with 1 non-corner edge piece = 12 cubes.' },
-  { id: 'sr13', type: 'spatial', difficulty: 5, question: 'A clock shows 6:30.\nWhat is the angle between\nthe hour and minute hands?', options: ['0°', '4°', '10°', '15°'], answer: '15°', explanation: 'At 6:30 the minute hand is at 180°. The hour hand is halfway between 6 and 7: 180° + 15° = 195°. Difference = 15°.' },
+  { id: 'sr2',  type: 'spatial', difficulty: 1, visual: () => <CompassSVG facing="W"/>, question: 'You are facing North.\nYou turn 90° clockwise.\nThen turn 180° clockwise.\n\nWhich direction are you facing?', options: ['North', 'South', 'East', 'West'], answer: 'West', explanation: 'North → 90° clockwise = East → 180° clockwise = West.' },
+  { id: 'sr3',  type: 'spatial', difficulty: 2, visual: () => <CubeSVG highlight="top"/>, question: 'How many faces does a cube have?', options: ['4', '5', '6', '8'], answer: '6', explanation: 'A cube has 6 faces: top, bottom, front, back, left, right.' },
+  { id: 'sr4',  type: 'spatial', difficulty: 2, visual: () => <ClockSVG hour={3} minute={0}/>, question: 'A clock shows 3:00.\nWhat is the angle between\nthe hour and minute hands?', options: ['60°', '75°', '90°', '120°'], answer: '90°', explanation: 'At 3:00, the minute hand points to 12 and the hour hand to 3. That is exactly 90°.' },
+  { id: 'sr5',  type: 'spatial', difficulty: 2, visual: () => <CompassSVG facing="N"/>, question: 'You are facing South.\nYou turn left twice (each turn is 90°).\n\nWhich direction are you now facing?', options: ['North', 'South', 'East', 'West'], answer: 'North', explanation: 'South → turn left 90° = East → turn left 90° = North.' },
+  { id: 'sr6',  type: 'spatial', difficulty: 3, visual: () => <CubeSVG highlight="front"/>, question: 'A 3×3×3 cube is painted red on all outside faces, then cut into 27 smaller cubes.\n\nHow many small cubes have NO red faces?', options: ['0', '1', '4', '8'], answer: '1', explanation: 'Only the single cube at the very centre has no painted faces.' },
+  { id: 'sr7',  type: 'spatial', difficulty: 3, visual: () => (
+    <svg width="180" height="130" viewBox="0 0 180 130">
+      <rect x="20" y="20" width="140" height="90" fill="rgba(125,249,255,0.08)" stroke={T} strokeWidth="1.5" rx="3"/>
+      <line x1="20" y1="20" x2="160" y2="110" stroke={W} strokeWidth="2.5" strokeDasharray="6 3"/>
+      <text x="90" y="115" textAnchor="middle" fontSize="10" fill={W} fontFamily="JetBrains Mono">diagonal = ?</text>
+      <text x="90" y="14" textAnchor="middle" fontSize="10" fill={T} fontFamily="JetBrains Mono">8cm</text>
+      <text x="5" y="68" textAnchor="middle" fontSize="10" fill={T} fontFamily="JetBrains Mono">6cm</text>
+    </svg>
+  ), question: 'A rectangle is 8cm wide and 6cm tall.\nIt is cut diagonally from corner to corner.\n\nWhat is the length of the diagonal cut?', options: ['8cm', '9cm', '10cm', '12cm'], answer: '10cm', explanation: 'Pythagoras: √(8² + 6²) = √(64 + 36) = √100 = 10cm.' },
+  { id: 'sr8',  type: 'spatial', difficulty: 3, visual: () => <CubeSVG highlight="side"/>, question: 'How many edges does a cube have?', options: ['6', '8', '12', '16'], answer: '12', explanation: 'A cube has 12 edges: 4 on top, 4 on bottom, and 4 vertical edges connecting them.' },
+  { id: 'sr9',  type: 'spatial', difficulty: 4, visual: () => <PyramidSVG/>, question: 'A shape has 5 faces, 5 vertices and 8 edges.\n\nWhat shape is it?', options: ['Cube', 'Triangular prism', 'Square pyramid', 'Tetrahedron'], answer: 'Square pyramid', explanation: 'A square pyramid has a square base (1 face) + 4 triangular faces = 5 faces, 5 vertices, 8 edges.' },
+  { id: 'sr10', type: 'spatial', difficulty: 4, visual: () => <PathSVG steps={[{dir:'N',label:'3mi'},{dir:'E',label:'4mi'}]}/>, question: 'You walk 3 miles North,\nthen 4 miles East.\n\nHow far are you from your starting point in a straight line?', options: ['5 miles', '6 miles', '7 miles', '8 miles'], answer: '5 miles', explanation: 'Pythagoras: √(3² + 4²) = √(9 + 16) = √25 = 5 miles.' },
+  { id: 'sr11', type: 'spatial', difficulty: 4, visual: () => <CubeSVG highlight="top"/>, question: 'A cube is 3×3×3.\nSmaller 1×1×1 cubes are removed from all 8 corners.\n\nHow many small cubes remain?', options: ['18', '19', '20', '21'], answer: '19', explanation: '27 total − 8 corner cubes = 19 remaining.' },
+  { id: 'sr12', type: 'spatial', difficulty: 5, visual: () => <CubeSVG highlight="side"/>, question: 'A 3×3×3 cube is painted red on all outside faces, then cut into 27 smaller cubes.\n\nHow many small cubes have exactly 2 red faces?', options: ['8', '12', '16', '20'], answer: '12', explanation: 'Edge pieces (not corners) have exactly 2 painted faces. A cube has 12 edges, each with 1 non-corner edge piece = 12 cubes.' },
+  { id: 'sr13', type: 'spatial', difficulty: 5, visual: () => <ClockSVG hour={6} minute={30}/>, question: 'A clock shows 6:30.\nWhat is the angle between\nthe hour and minute hands?', options: ['0°', '4°', '10°', '15°'], answer: '15°', explanation: 'At 6:30 the minute hand is at 180°. The hour hand is halfway between 6 and 7: 180° + 15° = 195°. Difference = 15°.' },
   { id: 'sr14', type: 'spatial', difficulty: 5, question: 'A square piece of paper is folded in half twice (both times the same way), then a circular hole is punched through all layers.\n\nHow many holes are there when fully unfolded?', options: ['2', '3', '4', '8'], answer: '4', explanation: 'Folding twice creates 4 layers. One punch through all layers = 4 holes when unfolded.' },
 ];
 
@@ -584,6 +795,11 @@ export default function IQTest() {
                   <span className="memory-reveal-label">// MEMORISE</span>
                   <span className="memory-reveal-seq">{q.memoryReveal}</span>
                   <span className="memory-reveal-hint">{memoryPulsing ? 'Disappearing...' : 'Memorise this sequence'}</span>
+                </div>
+              )}
+              {q.visual && (
+                <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0 12px' }}>
+                  {q.visual()}
                 </div>
               )}
               <p className="question-text" style={{ opacity: q.memoryReveal && memoryRevealed ? 0.25 : 1 }}>{q.question}</p>
