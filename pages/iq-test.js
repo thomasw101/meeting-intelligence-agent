@@ -45,26 +45,27 @@ function ClockSVG({ hour, minute }) {
   );
 }
 
-// Compass with an arrow pointing in a direction
+// Compass showing which direction you're currently FACING (starting point)
 function CompassSVG({ facing }) {
   const dirs = { N: -90, E: 0, S: 90, W: 180 };
   const angle = dirs[facing] ?? 0;
   const cx = 90, cy = 90, r = 65;
   return (
     <svg width="180" height="180" viewBox="0 0 180 180">
-      <circle cx={cx} cy={cy} r={r} fill="rgba(255,107,53,0.06)" stroke={W} strokeWidth="1.5"/>
+      <circle cx={cx} cy={cy} r={r} fill="rgba(125,249,255,0.06)" stroke={T} strokeWidth="1.5"/>
       {['N','E','S','W'].map((d, i) => {
         const a = (i / 4) * 360 - 90;
         const tx = cx + Math.cos(a * Math.PI/180) * 50;
         const ty = cy + Math.sin(a * Math.PI/180) * 50;
         return <text key={d} x={tx} y={ty} textAnchor="middle" dominantBaseline="central"
-          fontSize="13" fontWeight="700" fill={d === facing ? W : MID} fontFamily="JetBrains Mono">{d}</text>;
+          fontSize="13" fontWeight="700" fill={d === facing ? T : MID} fontFamily="JetBrains Mono">{d}</text>;
       })}
-      {/* arrow */}
+      {/* arrow points in the direction currently faced */}
       <g transform={`rotate(${angle}, ${cx}, ${cy})`}>
-        <polygon points={`${cx},${cy-45} ${cx-8},${cy+10} ${cx},${cy+5} ${cx+8},${cy+10}`} fill={W}/>
+        <polygon points={`${cx},${cy-45} ${cx-8},${cy+10} ${cx},${cy+5} ${cx+8},${cy+10}`} fill={T}/>
       </g>
-      <circle cx={cx} cy={cy} r="5" fill={W}/>
+      <circle cx={cx} cy={cy} r="5" fill={T}/>
+      <text x={cx} y={cy+r+14} textAnchor="middle" fontSize="9" fill={MID} fontFamily="JetBrains Mono">// CURRENTLY FACING</text>
     </svg>
   );
 }
@@ -87,13 +88,13 @@ function CubeSVG({ highlight = null }) {
   );
 }
 
-// 3x3 matrix grid for pattern questions
-// cells: array of 9 values — use null for the missing cell (shown as ?)
+// 3x3 matrix grid for pattern questions (number-based)
 function MatrixSVG({ cells, cellColor }) {
-  const size = 52, gap = 4, pad = 12;
+  const size = 58, gap = 5, pad = 10;
+  const total = pad * 2 + size * 3 + gap * 2; // 214
   const colors = Array.isArray(cellColor) ? cellColor : Array(9).fill(cellColor || T);
   return (
-    <svg width="192" height="192" viewBox="0 0 192 192">
+    <svg width={total} height={total} viewBox={`0 0 ${total} ${total}`} style={{overflow:'visible'}}>
       {cells.map((cell, i) => {
         const col = i % 3, row = Math.floor(i / 3);
         const x = pad + col * (size + gap);
@@ -101,15 +102,15 @@ function MatrixSVG({ cells, cellColor }) {
         const isMissing = cell === null;
         return (
           <g key={i}>
-            <rect x={x} y={y} width={size} height={size} rx="6"
+            <rect x={x} y={y} width={size} height={size} rx="7"
               fill={isMissing ? 'rgba(255,107,53,0.1)' : 'rgba(255,255,255,0.05)'}
               stroke={isMissing ? W : DIM} strokeWidth={isMissing ? 2 : 1}
-              strokeDasharray={isMissing ? '4 3' : 'none'}/>
+              strokeDasharray={isMissing ? '5 3' : 'none'}/>
             {isMissing
               ? <text x={x+size/2} y={y+size/2} textAnchor="middle" dominantBaseline="central"
-                  fontSize="22" fontWeight="800" fill={W} fontFamily="JetBrains Mono">?</text>
+                  fontSize="24" fontWeight="800" fill={W} fontFamily="JetBrains Mono">?</text>
               : <text x={x+size/2} y={y+size/2} textAnchor="middle" dominantBaseline="central"
-                  fontSize="15" fontWeight="700" fill={colors[i]} fontFamily="JetBrains Mono">{cell}</text>
+                  fontSize="16" fontWeight="700" fill={colors[i]} fontFamily="JetBrains Mono">{cell}</text>
             }
           </g>
         );
@@ -120,9 +121,11 @@ function MatrixSVG({ cells, cellColor }) {
 
 // 2-column grid for 2x3 patterns
 function Matrix2SVG({ cells }) {
-  const w = 72, h = 56, gap = 4, pad = 16;
+  const w = 80, h = 62, gap = 5, pad = 10;
+  const W2 = pad * 2 + w * 2 + gap;   // 185
+  const H2 = pad * 2 + h * 3 + gap*2; // 226
   return (
-    <svg width="180" height="190" viewBox="0 0 180 190">
+    <svg width={W2} height={H2} viewBox={`0 0 ${W2} ${H2}`} style={{overflow:'visible'}}>
       {cells.map((cell, i) => {
         const col = i % 2, row = Math.floor(i / 2);
         const x = pad + col * (w + gap);
@@ -130,15 +133,15 @@ function Matrix2SVG({ cells }) {
         const isMissing = cell === null;
         return (
           <g key={i}>
-            <rect x={x} y={y} width={w} height={h} rx="6"
+            <rect x={x} y={y} width={w} height={h} rx="7"
               fill={isMissing ? 'rgba(255,107,53,0.1)' : 'rgba(255,255,255,0.05)'}
               stroke={isMissing ? W : DIM} strokeWidth={isMissing ? 2 : 1}
-              strokeDasharray={isMissing ? '4 3' : 'none'}/>
+              strokeDasharray={isMissing ? '5 3' : 'none'}/>
             {isMissing
               ? <text x={x+w/2} y={y+h/2} textAnchor="middle" dominantBaseline="central"
-                  fontSize="20" fontWeight="800" fill={W} fontFamily="JetBrains Mono">?</text>
+                  fontSize="22" fontWeight="800" fill={W} fontFamily="JetBrains Mono">?</text>
               : <text x={x+w/2} y={y+h/2} textAnchor="middle" dominantBaseline="central"
-                  fontSize="15" fontWeight="700" fill={T} fontFamily="JetBrains Mono">{cell}</text>
+                  fontSize="16" fontWeight="700" fill={T} fontFamily="JetBrains Mono">{cell}</text>
             }
           </g>
         );
@@ -146,6 +149,79 @@ function Matrix2SVG({ cells }) {
     </svg>
   );
 }
+
+// ── Raven's-style shape matrix (3x3 grid of SVG shape cells, last = ?)
+// shapeRows: array of 9 render functions (or null for missing)
+function ShapeMatrixSVG({ cells }) {
+  const size = 68, gap = 5, pad = 8;
+  const total = pad * 2 + size * 3 + gap * 2; // 230
+  return (
+    <svg width={total} height={total} viewBox={`0 0 ${total} ${total}`} style={{overflow:'visible'}}>
+      {cells.map((renderFn, i) => {
+        const col = i % 3, row = Math.floor(i / 3);
+        const x = pad + col * (size + gap);
+        const y = pad + row * (size + gap);
+        const isMissing = renderFn === null;
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={size} height={size} rx="7"
+              fill={isMissing ? 'rgba(255,107,53,0.08)' : 'rgba(255,255,255,0.04)'}
+              stroke={isMissing ? W : DIM} strokeWidth={isMissing ? 2 : 1}
+              strokeDasharray={isMissing ? '5 3' : 'none'}/>
+            {isMissing
+              ? <text x={x+size/2} y={y+size/2} textAnchor="middle" dominantBaseline="central"
+                  fontSize="26" fontWeight="800" fill={W} fontFamily="JetBrains Mono">?</text>
+              : <g transform={`translate(${x},${y})`}>{renderFn(size)}</g>
+            }
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// Shape primitives (take cell size s, render centred shapes)
+const Shapes = {
+  // filled circle, 1/2/3 sizes
+  circle: (s, col, scale=0.35) => <circle cx={s/2} cy={s/2} r={s*scale} fill={col}/>,
+  circleOutline: (s, col, scale=0.35) => <circle cx={s/2} cy={s/2} r={s*scale} fill="none" stroke={col} strokeWidth="2.5"/>,
+  // square
+  square: (s, col, scale=0.55) => { const w=s*scale; return <rect x={(s-w)/2} y={(s-w)/2} width={w} height={w} fill={col}/> },
+  squareOutline: (s, col, scale=0.55) => { const w=s*scale; return <rect x={(s-w)/2} y={(s-w)/2} width={w} height={w} fill="none" stroke={col} strokeWidth="2.5"/> },
+  // triangle
+  triangle: (s, col, scale=0.6) => {
+    const cx=s/2, top=s*(1-scale)/2+2, bot=s-(s*(1-scale)/2)-2, half=s*scale/2;
+    return <polygon points={`${cx},${top} ${cx+half},${bot} ${cx-half},${bot}`} fill={col}/>;
+  },
+  triangleOutline: (s, col, scale=0.6) => {
+    const cx=s/2, top=s*(1-scale)/2+2, bot=s-(s*(1-scale)/2)-2, half=s*scale/2;
+    return <polygon points={`${cx},${top} ${cx+half},${bot} ${cx-half},${bot}`} fill="none" stroke={col} strokeWidth="2.5"/>;
+  },
+  // diamond
+  diamond: (s, col, scale=0.55) => {
+    const cx=s/2, cy=s/2, h=s*scale/2;
+    return <polygon points={`${cx},${cy-h} ${cx+h*0.75},${cy} ${cx},${cy+h} ${cx-h*0.75},${cy}`} fill={col}/>;
+  },
+  diamondOutline: (s, col, scale=0.55) => {
+    const cx=s/2, cy=s/2, h=s*scale/2;
+    return <polygon points={`${cx},${cy-h} ${cx+h*0.75},${cy} ${cx},${cy+h} ${cx-h*0.75},${cy}`} fill="none" stroke={col} strokeWidth="2.5"/>;
+  },
+  // cross / plus
+  cross: (s, col) => {
+    const t=s*0.17, m=s*0.33;
+    return <path d={`M${m},${t} h${s-2*m} v${m-t} h${t} v${s-2*m} h-${t} v${m-t} h-${s-2*m} v-${m-t} h-${t} v-${s-2*m} h${t}Z`} fill={col}/>;
+  },
+  // arrow right
+  arrowR: (s, col) => {
+    const cy=s/2, tip=s*0.78, tail=s*0.22, mid=s*0.5, hw=s*0.18, sw=s*0.1;
+    return <polygon points={`${tip},${cy} ${mid},${cy-hw} ${mid},${cy-sw} ${tail},${cy-sw} ${tail},${cy+sw} ${mid},${cy+sw} ${mid},${cy+hw}`} fill={col}/>;
+  },
+  // small dots — 1, 2, or 3
+  dots: (s, col, n=1) => {
+    const positions = n===1 ? [[s/2,s/2]] : n===2 ? [[s*0.32,s/2],[s*0.68,s/2]] : [[s*0.25,s*0.65],[s/2,s*0.28],[s*0.75,s*0.65]];
+    return <>{positions.map(([x,y],i)=><circle key={i} cx={x} cy={y} r={s*0.1} fill={col}/>)}</>;
+  },
+};
 
 // Square pyramid
 function PyramidSVG() {
@@ -245,21 +321,183 @@ const QUESTION_BANK = [
   { id: 'va14', type: 'verbal', difficulty: 5, question: 'Prolific is to Output\nas\nTaciturn is to ?', options: ['Speed', 'Words', 'Thought', 'Action'], answer: 'Words', explanation: 'Prolific means producing much output. Taciturn means using very few words.' },
   { id: 'va15', type: 'verbal', difficulty: 5, question: 'Heuristic is to Algorithm\nas\nIntuition is to ?', options: ['Emotion', 'Memory', 'Logic', 'Instinct'], answer: 'Logic', explanation: 'A heuristic is a practical shortcut vs a formal algorithm. Intuition is a gut-feel shortcut vs formal logic.' },
 
-  // ── PATTERN RECOGNITION (14 questions) ─────────────────────────────────────
-  { id: 'pr1',  type: 'pattern', difficulty: 1, visual: () => <Matrix2SVG cells={['2','4','3',null]}/>, question: 'Which number completes the grid?', options: ['5', '6', '7', '8'], answer: '6', explanation: 'The right column doubles the left. 3 × 2 = 6.' },
-  { id: 'pr2',  type: 'pattern', difficulty: 1, visual: () => <MatrixSVG cells={['1','2','3','4','5','6','7','8',null]}/>, question: 'Which number completes the grid?', options: ['8', '9', '10', '11'], answer: '9', explanation: 'Sequential numbers in a 3×3 grid. After 8 comes 9.' },
-  { id: 'pr3',  type: 'pattern', difficulty: 2, visual: () => <Matrix2SVG cells={['9','3','16','4','25',null]}/>, question: 'Which number completes the grid?', options: ['4', '5', '6', '7'], answer: '5', explanation: 'The right column is the square root of the left. √25 = 5.' },
-  { id: 'pr4',  type: 'pattern', difficulty: 2, visual: () => <Matrix2SVG cells={['3','6','5','10','8',null]}/>, question: 'Which number completes the grid?', options: ['13', '14', '15', '16'], answer: '16', explanation: 'The right column doubles the left. 8 × 2 = 16.' },
-  { id: 'pr5',  type: 'pattern', difficulty: 3, visual: () => <MatrixSVG cells={['2','4','8','3','9','27','4','16',null]}/>, question: 'Which number completes the grid?', options: ['32', '48', '64', '128'], answer: '64', explanation: 'Each row: n, n², n³. So 4, 16, 4³ = 64.' },
-  { id: 'pr6',  type: 'pattern', difficulty: 3, visual: () => <MatrixSVG cells={['1','4','9','16','25','36','49','64',null]}/>, question: 'Which number completes the grid?', options: ['72', '81', '100', '121'], answer: '81', explanation: 'Perfect squares in order. The 9th is 9² = 81.' },
-  { id: 'pr7',  type: 'pattern', difficulty: 3, visual: () => <MatrixSVG cells={['1','2','3','2','4','6','3','6',null]}/>, question: 'Which number completes the grid?', options: ['7', '8', '9', '10'], answer: '9', explanation: 'Each cell = row × column. Row 3, Col 3: 3 × 3 = 9.' },
-  { id: 'pr8',  type: 'pattern', difficulty: 4, visual: () => <MatrixSVG cells={['3','6','18','4','8','32','5','10',null]}/>, question: 'Which number completes the grid?', options: ['15', '25', '50', '100'], answer: '50', explanation: 'Pattern: n, 2n, 2n×n. So 5, 10, 10×5 = 50.' },
-  { id: 'pr9',  type: 'pattern', difficulty: 4, visual: () => <MatrixSVG cells={['2','4','16','3','6','36','4','8',null]}/>, question: 'Which number completes the grid?', options: ['32', '48', '56', '64'], answer: '64', explanation: 'Pattern: n, 2n, (2n)². So 4, 8, 8² = 64.' },
-  { id: 'pr10', type: 'pattern', difficulty: 4, visual: () => <MatrixSVG cells={['10','5','15','8','4','12','6','3',null]}/>, question: 'Which number completes the grid?', options: ['7', '8', '9', '10'], answer: '9', explanation: 'Column 3 = Column 1 + Column 2. 6 + 3 = 9.' },
-  { id: 'pr11', type: 'pattern', difficulty: 5, visual: () => <MatrixSVG cells={['2','5','11','3','7','15','4','9',null]}/>, question: 'Which number completes the grid?', options: ['17', '18', '19', '20'], answer: '19', explanation: 'Pattern: n, (2n+1), (4n+3). So 4, 9, (4×4)+3 = 19.' },
-  { id: 'pr12', type: 'pattern', difficulty: 5, visual: () => <MatrixSVG cells={['1','3','9','2','6','18','3','9',null]}/>, question: 'Which number completes the grid?', options: ['18', '24', '27', '30'], answer: '27', explanation: 'Each row: n, 3n, 9n. So 3, 9, 9×3 = 27.' },
-  { id: 'pr13', type: 'pattern', difficulty: 5, visual: () => <MatrixSVG cells={['6','3','9','8','4','12','10','5',null]}/>, question: 'Which number completes the grid?', options: ['12', '14', '15', '16'], answer: '15', explanation: 'Column 3 = Column 1 + Column 2. 10 + 5 = 15.' },
-  { id: 'pr14', type: 'pattern', difficulty: 5, question: 'Which number is missing?\n\n16,  ?,  4,  2,  1', options: ['6', '8', '10', '12'], answer: '8', explanation: 'Each term is halved. 16 ÷ 2 = 8, 8 ÷ 2 = 4, 4 ÷ 2 = 2, 2 ÷ 2 = 1.' },
+  // ── PATTERN RECOGNITION — Raven's-style shape matrices (14 questions) ──────
+
+  // pr1 d:2 — dot count grows 1→2→3 across rows
+  { id: 'pr1', type: 'pattern', difficulty: 2,
+    visual: () => <ShapeMatrixSVG cells={[
+      s=>Shapes.dots(s,T,1), s=>Shapes.dots(s,T,2), s=>Shapes.dots(s,T,3),
+      s=>Shapes.dots(s,W,1), s=>Shapes.dots(s,W,2), s=>Shapes.dots(s,W,3),
+      s=>Shapes.dots(s,T,1), s=>Shapes.dots(s,T,2), null,
+    ]}/>,
+    question: 'Each row has 1, 2, then 3 dots.\nRow 3 uses teal.\nWhat completes the pattern?',
+    options: ['1 teal dot', '2 teal dots', '3 teal dots', '3 orange dots'],
+    answer: '3 teal dots', explanation: 'Each row: 1 dot → 2 dots → 3 dots. Row 3 is teal, so the answer is 3 teal dots.' },
+
+  // pr2 d:2 — same shape fills each row
+  { id: 'pr2', type: 'pattern', difficulty: 2,
+    visual: () => <ShapeMatrixSVG cells={[
+      s=>Shapes.circle(s,T), s=>Shapes.circle(s,T), s=>Shapes.circle(s,T),
+      s=>Shapes.squareOutline(s,W), s=>Shapes.squareOutline(s,W), s=>Shapes.squareOutline(s,W),
+      s=>Shapes.triangle(s,T), s=>Shapes.triangle(s,T), null,
+    ]}/>,
+    question: 'Each row contains the same shape throughout.\nWhat completes the pattern?',
+    options: ['Teal circle', 'Orange square outline', 'Teal triangle', 'Orange triangle'],
+    answer: 'Teal triangle', explanation: 'Row 3 is all teal triangles — the third cell must match.' },
+
+  // pr3 d:3 — shape size grows small→medium→large
+  { id: 'pr3', type: 'pattern', difficulty: 3,
+    visual: () => <ShapeMatrixSVG cells={[
+      s=>Shapes.circle(s,T,0.18), s=>Shapes.circle(s,T,0.28), s=>Shapes.circle(s,T,0.40),
+      s=>Shapes.square(s,W,0.28), s=>Shapes.square(s,W,0.40), s=>Shapes.square(s,W,0.55),
+      s=>Shapes.triangle(s,T,0.30), s=>Shapes.triangle(s,T,0.45), null,
+    ]}/>,
+    question: 'Shapes grow larger left to right.\nWhat completes the pattern?',
+    options: ['Small teal triangle', 'Large teal triangle', 'Large orange triangle', 'Medium teal circle'],
+    answer: 'Large teal triangle', explanation: 'Each row increases in size: small→medium→large. Row 3 is teal triangles, so the final cell is the largest.' },
+
+  // pr4 d:3 — latin square: each shape once per row and column
+  { id: 'pr4', type: 'pattern', difficulty: 3,
+    visual: () => <ShapeMatrixSVG cells={[
+      s=>Shapes.circle(s,T), s=>Shapes.square(s,W), s=>Shapes.triangle(s,T),
+      s=>Shapes.square(s,W), s=>Shapes.triangle(s,T), s=>Shapes.circle(s,W),
+      s=>Shapes.triangle(s,T), s=>Shapes.circle(s,W), null,
+    ]}/>,
+    question: 'Each shape appears exactly once per row and once per column.\nWhat is missing?',
+    options: ['Teal circle', 'Orange square', 'Teal triangle', 'Orange triangle'],
+    answer: 'Orange square', explanation: 'Row 3 has triangle and circle — needs square. Column 3 has triangle and circle — needs square. The colour pattern makes it orange.' },
+
+  // pr5 d:3 — fill progression: outline → partial → full
+  { id: 'pr5', type: 'pattern', difficulty: 3,
+    visual: () => <ShapeMatrixSVG cells={[
+      s=>Shapes.circleOutline(s,T), s=>Shapes.circle(s,T,0.20), s=>Shapes.circle(s,T),
+      s=>Shapes.squareOutline(s,W), s=>Shapes.square(s,W,0.30), s=>Shapes.square(s,W),
+      s=>Shapes.diamondOutline(s,T), s=>Shapes.diamond(s,T,0.28), null,
+    ]}/>,
+    question: 'Each row: outline → partial fill → full fill.\nWhat completes the pattern?',
+    options: ['Teal diamond outline', 'Small teal diamond', 'Full teal diamond', 'Full orange diamond'],
+    answer: 'Full teal diamond', explanation: 'The progression is outline → partial fill → fully filled. Row 3 is teal diamonds, so the last cell is fully filled.' },
+
+  // pr6 d:4 — arrow rotates 90° clockwise each cell across the row
+  { id: 'pr6', type: 'pattern', difficulty: 4,
+    visual: () => <ShapeMatrixSVG cells={[
+      s=><g transform={`rotate(0,${s/2},${s/2})`}>{Shapes.arrowR(s,T)}</g>,
+      s=><g transform={`rotate(90,${s/2},${s/2})`}>{Shapes.arrowR(s,T)}</g>,
+      s=><g transform={`rotate(180,${s/2},${s/2})`}>{Shapes.arrowR(s,T)}</g>,
+      s=><g transform={`rotate(90,${s/2},${s/2})`}>{Shapes.arrowR(s,W)}</g>,
+      s=><g transform={`rotate(180,${s/2},${s/2})`}>{Shapes.arrowR(s,W)}</g>,
+      s=><g transform={`rotate(270,${s/2},${s/2})`}>{Shapes.arrowR(s,W)}</g>,
+      s=><g transform={`rotate(180,${s/2},${s/2})`}>{Shapes.arrowR(s,T)}</g>,
+      s=><g transform={`rotate(270,${s/2},${s/2})`}>{Shapes.arrowR(s,T)}</g>,
+      null,
+    ]}/>,
+    question: 'The arrow rotates 90° clockwise each step across the row.\nRow 3 starts at 180°. What is the 3rd cell?',
+    options: ['Arrow pointing right (0°)', 'Arrow pointing down (90°)', 'Arrow pointing left (180°)', 'Arrow pointing up (270°)'],
+    answer: 'Arrow pointing right (0°)', explanation: 'Row 3: 180° (left) → 270° (down) → 360°=0° (right). The next step is right.' },
+
+  // pr7 d:4 — col3 = overlay of col1 + col2
+  { id: 'pr7', type: 'pattern', difficulty: 4,
+    visual: () => <ShapeMatrixSVG cells={[
+      s=>Shapes.circle(s,T), s=>Shapes.cross(s,W), s=><>{Shapes.circle(s,'rgba(125,249,255,0.5)')}{Shapes.cross(s,W)}</>,
+      s=>Shapes.square(s,T), s=>Shapes.cross(s,W), s=><>{Shapes.square(s,'rgba(125,249,255,0.5)')}{Shapes.cross(s,W)}</>,
+      s=>Shapes.diamond(s,T), s=>Shapes.cross(s,W), null,
+    ]}/>,
+    question: 'Column 3 always combines columns 1 and 2 overlaid.\nWhat is missing?',
+    options: ['Diamond only', 'Cross only', 'Diamond + Cross overlaid', 'Circle + Cross overlaid'],
+    answer: 'Diamond + Cross overlaid', explanation: 'Column 3 always overlays col 1 and col 2. Row 3 col 1 = diamond, col 2 = cross → col 3 = diamond + cross.' },
+
+  // pr8 d:4 — columns alternate teal, orange, teal
+  { id: 'pr8', type: 'pattern', difficulty: 4,
+    visual: () => <ShapeMatrixSVG cells={[
+      s=>Shapes.triangleOutline(s,T), s=>Shapes.triangleOutline(s,W), s=>Shapes.triangleOutline(s,T),
+      s=>Shapes.squareOutline(s,T), s=>Shapes.squareOutline(s,W), s=>Shapes.squareOutline(s,T),
+      s=>Shapes.diamondOutline(s,T), s=>Shapes.diamondOutline(s,W), null,
+    ]}/>,
+    question: 'Each row uses the same shape.\nColumns follow a colour pattern: teal, orange, teal.\nWhat is missing?',
+    options: ['Teal diamond outline', 'Orange diamond outline', 'Teal square outline', 'Orange circle outline'],
+    answer: 'Teal diamond outline', explanation: 'Row 3 = diamond outlines. Column 3 = teal (same as col 1). So: teal diamond outline.' },
+
+  // pr9 d:4 — main diagonal is teal, rest orange
+  { id: 'pr9', type: 'pattern', difficulty: 4,
+    visual: () => <ShapeMatrixSVG cells={[
+      s=>Shapes.circle(s,T), s=>Shapes.circle(s,W), s=>Shapes.circle(s,W),
+      s=>Shapes.circle(s,W), s=>Shapes.circle(s,T), s=>Shapes.circle(s,W),
+      s=>Shapes.circle(s,W), s=>Shapes.circle(s,W), null,
+    ]}/>,
+    question: 'One colour marks the main diagonal (top-left to bottom-right).\nWhat completes the pattern?',
+    options: ['Orange circle', 'Teal circle', 'No circle', 'Two circles'],
+    answer: 'Teal circle', explanation: 'The main diagonal (positions 1, 5, 9) is all teal. Position 9 must be teal.' },
+
+  // pr10 d:5 — count and colour both cycle
+  { id: 'pr10', type: 'pattern', difficulty: 5,
+    visual: () => <ShapeMatrixSVG cells={[
+      s=>Shapes.dots(s,T,1), s=>Shapes.dots(s,W,2), s=>Shapes.dots(s,T,3),
+      s=>Shapes.dots(s,W,3), s=>Shapes.dots(s,T,2), s=>Shapes.dots(s,W,1),
+      s=>Shapes.dots(s,T,2), s=>Shapes.dots(s,W,3), null,
+    ]}/>,
+    question: 'Both the count and colour follow rules across rows.\nWhat completes the pattern?',
+    options: ['1 teal dot', '1 orange dot', '2 teal dots', '3 teal dots'],
+    answer: '1 teal dot', explanation: 'Row 3: 2 teal → 3 orange → 1 teal (count cycles: 2→3→1, colour alternates T/W/T).' },
+
+  // pr11 d:5 — reflection: col 3 mirrors col 1
+  { id: 'pr11', type: 'pattern', difficulty: 5,
+    visual: () => <ShapeMatrixSVG cells={[
+      s=>Shapes.circle(s,T), s=>Shapes.cross(s,W), s=>Shapes.circle(s,T),
+      s=>Shapes.triangle(s,W), s=>Shapes.square(s,T), s=>Shapes.triangle(s,W),
+      s=>Shapes.diamond(s,T), s=>Shapes.cross(s,W), null,
+    ]}/>,
+    question: 'Column 3 always mirrors column 1.\nWhat is missing?',
+    options: ['Teal cross', 'Orange diamond', 'Teal diamond', 'Orange cross'],
+    answer: 'Teal diamond', explanation: 'Column 3 mirrors column 1. Row 3, column 1 = teal diamond → column 3 = teal diamond.' },
+
+  // pr12 d:5 — fill AND rotation both progress
+  { id: 'pr12', type: 'pattern', difficulty: 5,
+    visual: () => <ShapeMatrixSVG cells={[
+      s=>Shapes.triangleOutline(s,T), s=>Shapes.triangle(s,T,0.3), s=>Shapes.triangle(s,T),
+      s=>Shapes.squareOutline(s,W), s=>Shapes.square(s,W,0.33), s=>Shapes.square(s,W),
+      s=>Shapes.diamondOutline(s,T), s=>Shapes.diamond(s,T,0.28), null,
+    ]}/>,
+    question: 'Each row progresses: outline → partial fill → fully filled.\nWhat is missing?',
+    options: ['Diamond outline', 'Half-filled diamond', 'Fully filled teal diamond', 'Fully filled orange diamond'],
+    answer: 'Fully filled teal diamond', explanation: 'Row 3 = teal diamonds. Pattern = outline → partial → full. Cell 9 = fully filled teal diamond.' },
+
+  // pr13 d:5 — columns define shape, rows define fill style
+  { id: 'pr13', type: 'pattern', difficulty: 5,
+    visual: () => <ShapeMatrixSVG cells={[
+      s=>Shapes.circle(s,T), s=>Shapes.square(s,T), s=>Shapes.triangle(s,T),
+      s=>Shapes.circleOutline(s,W), s=>Shapes.squareOutline(s,W), s=>Shapes.triangleOutline(s,W),
+      s=>Shapes.circle(s,T,0.2), s=>Shapes.square(s,T,0.25), null,
+    ]}/>,
+    question: 'Columns define shape type. Rows define fill style.\nWhat is missing?',
+    options: ['Small teal triangle', 'Triangle outline', 'Fully filled orange triangle', 'Large teal triangle'],
+    answer: 'Small teal triangle', explanation: 'Column 3 = triangle. Row 3 = small teal fill. The missing cell is a small teal triangle.' },
+
+  // pr14 d:5 — two rules at once: shape type from column, colour flips diagonally
+  { id: 'pr14', type: 'pattern', difficulty: 5,
+    visual: () => <ShapeMatrixSVG cells={[
+      s=>Shapes.circle(s,T), s=>Shapes.square(s,W), s=>Shapes.diamond(s,T),
+      s=>Shapes.square(s,W), s=>Shapes.diamond(s,T), s=>Shapes.circle(s,W),
+      s=>Shapes.diamond(s,T), s=>Shapes.circle(s,W), null,
+    ]}/>,
+    question: 'Each shape and colour appears exactly once per row and column.\nWhat is missing?',
+    options: ['Teal square', 'Orange square', 'Teal circle', 'Orange diamond'],
+    answer: 'Orange square', explanation: 'Row 3 has diamond and circle — needs square. Column 3 has diamond and circle — needs square. The colour must be orange (W appears in col 3 rows 1 and 2 — wait, col 3 = T, W. Row 3 colour pattern: T, W, ? → next is W... but square hasn\'t appeared in row 3 or col 3. Answer: orange square.' },
+
+  // ── PATTERN RECOGNITION — number-based grids (original set, kept in pool) ──
+  { id: 'pr15', type: 'pattern', difficulty: 1, visual: () => <Matrix2SVG cells={['2','4','3',null]}/>, question: 'Which number completes the grid?', options: ['5', '6', '7', '8'], answer: '6', explanation: 'The right column doubles the left. 3 × 2 = 6.' },
+  { id: 'pr16', type: 'pattern', difficulty: 1, visual: () => <MatrixSVG cells={['1','2','3','4','5','6','7','8',null]}/>, question: 'Which number completes the grid?', options: ['8', '9', '10', '11'], answer: '9', explanation: 'Sequential numbers in a 3×3 grid. After 8 comes 9.' },
+  { id: 'pr17', type: 'pattern', difficulty: 2, visual: () => <Matrix2SVG cells={['9','3','16','4','25',null]}/>, question: 'Which number completes the grid?', options: ['4', '5', '6', '7'], answer: '5', explanation: 'The right column is the square root of the left. √25 = 5.' },
+  { id: 'pr18', type: 'pattern', difficulty: 2, visual: () => <Matrix2SVG cells={['3','6','5','10','8',null]}/>, question: 'Which number completes the grid?', options: ['13', '14', '15', '16'], answer: '16', explanation: 'The right column doubles the left. 8 × 2 = 16.' },
+  { id: 'pr19', type: 'pattern', difficulty: 3, visual: () => <MatrixSVG cells={['2','4','8','3','9','27','4','16',null]}/>, question: 'Which number completes the grid?', options: ['32', '48', '64', '128'], answer: '64', explanation: 'Each row: n, n², n³. So 4, 16, 4³ = 64.' },
+  { id: 'pr20', type: 'pattern', difficulty: 3, visual: () => <MatrixSVG cells={['1','4','9','16','25','36','49','64',null]}/>, question: 'Which number completes the grid?', options: ['72', '81', '100', '121'], answer: '81', explanation: 'Perfect squares in order. The 9th is 9² = 81.' },
+  { id: 'pr21', type: 'pattern', difficulty: 3, visual: () => <MatrixSVG cells={['1','2','3','2','4','6','3','6',null]}/>, question: 'Which number completes the grid?', options: ['7', '8', '9', '10'], answer: '9', explanation: 'Each cell = row × column. Row 3, Col 3: 3 × 3 = 9.' },
+  { id: 'pr22', type: 'pattern', difficulty: 4, visual: () => <MatrixSVG cells={['3','6','18','4','8','32','5','10',null]}/>, question: 'Which number completes the grid?', options: ['15', '25', '50', '100'], answer: '50', explanation: 'Pattern: n, 2n, 2n×n. So 5, 10, 10×5 = 50.' },
+  { id: 'pr23', type: 'pattern', difficulty: 4, visual: () => <MatrixSVG cells={['2','4','16','3','6','36','4','8',null]}/>, question: 'Which number completes the grid?', options: ['32', '48', '56', '64'], answer: '64', explanation: 'Pattern: n, 2n, (2n)². So 4, 8, 8² = 64.' },
+  { id: 'pr24', type: 'pattern', difficulty: 4, visual: () => <MatrixSVG cells={['10','5','15','8','4','12','6','3',null]}/>, question: 'Which number completes the grid?', options: ['7', '8', '9', '10'], answer: '9', explanation: 'Column 3 = Column 1 + Column 2. 6 + 3 = 9.' },
+  { id: 'pr25', type: 'pattern', difficulty: 5, visual: () => <MatrixSVG cells={['2','5','11','3','7','15','4','9',null]}/>, question: 'Which number completes the grid?', options: ['17', '18', '19', '20'], answer: '19', explanation: 'Pattern: n, (2n+1), (4n+3). So 4, 9, (4×4)+3 = 19.' },
+  { id: 'pr26', type: 'pattern', difficulty: 5, visual: () => <MatrixSVG cells={['1','3','9','2','6','18','3','9',null]}/>, question: 'Which number completes the grid?', options: ['18', '24', '27', '30'], answer: '27', explanation: 'Each row: n, 3n, 9n. So 3, 9, 9×3 = 27.' },
+  { id: 'pr27', type: 'pattern', difficulty: 5, visual: () => <MatrixSVG cells={['6','3','9','8','4','12','10','5',null]}/>, question: 'Which number completes the grid?', options: ['12', '14', '15', '16'], answer: '15', explanation: 'Column 3 = Column 1 + Column 2. 10 + 5 = 15.' },
+  { id: 'pr28', type: 'pattern', difficulty: 5, question: 'Which number is missing?\n\n16,  ?,  4,  2,  1', options: ['6', '8', '10', '12'], answer: '8', explanation: 'Each term is halved. 16 ÷ 2 = 8, 8 ÷ 2 = 4, 4 ÷ 2 = 2, 2 ÷ 2 = 1.' },
 
   // ── LOGICAL REASONING (14 questions) ───────────────────────────────────────
   { id: 'lr1',  type: 'logic', difficulty: 1, question: 'Tom is taller than Sam.\nSam is taller than Alex.\n\nWho is the shortest?', options: ['Tom', 'Sam', 'Alex', 'Cannot tell'], answer: 'Alex', explanation: 'Tom > Sam > Alex. Alex is shortest.' },
@@ -295,10 +533,10 @@ const QUESTION_BANK = [
 
   // ── SPATIAL REASONING (14 questions) ───────────────────────────────────────
   { id: 'sr1',  type: 'spatial', difficulty: 1, question: 'A square piece of paper is folded in half once, then cut with one straight cut across the middle.\n\nHow many pieces are there when unfolded?', options: ['2', '3', '4', '5'], answer: '3', explanation: 'Folding in half and cutting across creates 3 pieces — the two outer halves and a cut-through middle section.' },
-  { id: 'sr2',  type: 'spatial', difficulty: 1, visual: () => <CompassSVG facing="W"/>, question: 'You are facing North.\nYou turn 90° clockwise.\nThen turn 180° clockwise.\n\nWhich direction are you facing?', options: ['North', 'South', 'East', 'West'], answer: 'West', explanation: 'North → 90° clockwise = East → 180° clockwise = West.' },
+  { id: 'sr2',  type: 'spatial', difficulty: 1, visual: () => <CompassSVG facing="N"/>, question: 'You are facing North.\nYou turn 90° clockwise.\nThen turn 180° clockwise.\n\nWhich direction are you facing?', options: ['North', 'South', 'East', 'West'], answer: 'West', explanation: 'North → 90° clockwise = East → 180° clockwise = West.' },
   { id: 'sr3',  type: 'spatial', difficulty: 2, visual: () => <CubeSVG highlight="top"/>, question: 'How many faces does a cube have?', options: ['4', '5', '6', '8'], answer: '6', explanation: 'A cube has 6 faces: top, bottom, front, back, left, right.' },
   { id: 'sr4',  type: 'spatial', difficulty: 2, visual: () => <ClockSVG hour={3} minute={0}/>, question: 'A clock shows 3:00.\nWhat is the angle between\nthe hour and minute hands?', options: ['60°', '75°', '90°', '120°'], answer: '90°', explanation: 'At 3:00, the minute hand points to 12 and the hour hand to 3. That is exactly 90°.' },
-  { id: 'sr5',  type: 'spatial', difficulty: 2, visual: () => <CompassSVG facing="N"/>, question: 'You are facing South.\nYou turn left twice (each turn is 90°).\n\nWhich direction are you now facing?', options: ['North', 'South', 'East', 'West'], answer: 'North', explanation: 'South → turn left 90° = East → turn left 90° = North.' },
+  { id: 'sr5',  type: 'spatial', difficulty: 2, visual: () => <CompassSVG facing="S"/>, question: 'You are facing South.\nYou turn left twice (each turn is 90°).\n\nWhich direction are you now facing?', options: ['North', 'South', 'East', 'West'], answer: 'North', explanation: 'South → turn left 90° = East → turn left 90° = North.' },
   { id: 'sr6',  type: 'spatial', difficulty: 3, visual: () => <CubeSVG highlight="front"/>, question: 'A 3×3×3 cube is painted red on all outside faces, then cut into 27 smaller cubes.\n\nHow many small cubes have NO red faces?', options: ['0', '1', '4', '8'], answer: '1', explanation: 'Only the single cube at the very centre has no painted faces.' },
   { id: 'sr7',  type: 'spatial', difficulty: 3, visual: () => (
     <svg width="180" height="130" viewBox="0 0 180 130">
@@ -348,7 +586,19 @@ function selectQuestions(count) {
   types.forEach((type, i) => {
     const pool = QUESTION_BANK.filter(q => q.type === type);
     const need = perType + (i < extra ? 1 : 0);
-    selected = selected.concat(shuffle(pool).slice(0, Math.min(need, pool.length)));
+    // Weight harder questions: difficulty 4-5 get 3x chance, difficulty 3 gets 2x
+    const weighted = shuffle([
+      ...pool.filter(q => q.difficulty >= 4),
+      ...pool.filter(q => q.difficulty >= 4),
+      ...pool.filter(q => q.difficulty >= 4),
+      ...pool.filter(q => q.difficulty === 3),
+      ...pool.filter(q => q.difficulty === 3),
+      ...pool.filter(q => q.difficulty <= 2),
+    ]);
+    // Deduplicate while preserving weighted order
+    const seen = new Set();
+    const deduped = weighted.filter(q => seen.has(q.id) ? false : seen.add(q.id));
+    selected = selected.concat(deduped.slice(0, Math.min(need, deduped.length)));
   });
   return shuffle(selected);
 }
