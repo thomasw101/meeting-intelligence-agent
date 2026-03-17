@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import Layout from '../../components/Layout';
 
 export default function LiveryLive() {
   const [code, setCode] = useState('');
@@ -8,6 +7,7 @@ export default function LiveryLive() {
   const [mounted, setMounted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [calendlyOpen, setCalendlyOpen] = useState(false);
 
   const [horses, setHorses] = useState(20);
   const [adminHours, setAdminHours] = useState(10);
@@ -21,6 +21,20 @@ export default function LiveryLive() {
     if (saved === 'true') setUnlocked(true);
   }, []);
 
+  // Load Calendly script when modal opens
+  useEffect(() => {
+    if (calendlyOpen) {
+      const existing = document.getElementById('calendly-script');
+      if (!existing) {
+        const script = document.createElement('script');
+        script.id = 'calendly-script';
+        script.src = 'https://assets.calendly.com/assets/external/widget.js';
+        script.async = true;
+        document.head.appendChild(script);
+      }
+    }
+  }, [calendlyOpen]);
+
   const handleUnlock = () => {
     const correctCode = process.env.NEXT_PUBLIC_LIVERY_CODE || 'LIVERY2026';
     if (code.trim().toUpperCase() === correctCode.toUpperCase()) {
@@ -32,11 +46,12 @@ export default function LiveryLive() {
     }
   };
 
+  // ROI — all recalculate together correctly
   const liveryliveAnnual = horses * 2 * 12;
   const adminSavingsValue = Math.round(adminHours * 0.6 * 12) * hourlyWage;
   const revenueRecovered = missedCharges * chargeValue * 12;
   const totalBenefit = adminSavingsValue + revenueRecovered;
-  const roi = Math.round(((totalBenefit - liveryliveAnnual) / liveryliveAnnual) * 100);
+  const roi = liveryliveAnnual > 0 ? Math.round(((totalBenefit - liveryliveAnnual) / liveryliveAnnual) * 100) : 0;
 
   const roiEmbedCode = `<!-- LiveryLive ROI Calculator — built by LearnLab Studio -->
 <div id="ll-roi-calc"></div>
@@ -110,6 +125,7 @@ export default function LiveryLive() {
 
   if (!mounted) return null;
 
+  // ── ACCESS GATE ──
   if (!unlocked) {
     return (
       <div className="gate-wrap">
@@ -135,28 +151,9 @@ export default function LiveryLive() {
         <script dangerouslySetInnerHTML={{ __html: particleScript }} />
         <style jsx global>{`body { margin: 0; background: #0a1628; }`}</style>
         <style jsx>{`
-          .gate-wrap {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            position: relative;
-            background: linear-gradient(135deg, #0a1628 0%, #0d2137 50%, #0a2020 100%);
-          }
+          .gate-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; position: relative; background: linear-gradient(135deg, #0a1628 0%, #0d2137 50%, #0a2020 100%); }
           .bg-canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
-          .gate-card {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(14,144,144,0.3);
-            border-radius: 28px;
-            padding: 56px;
-            width: 100%;
-            max-width: 460px;
-            backdrop-filter: blur(20px);
-            position: relative;
-            z-index: 2;
-            animation: fadeUp 0.7s ease-out;
-          }
+          .gate-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(14,144,144,0.3); border-radius: 28px; padding: 56px; width: 100%; max-width: 460px; backdrop-filter: blur(20px); position: relative; z-index: 2; animation: fadeUp 0.7s ease-out; }
           .ll-brand { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.25em; color: rgba(255,255,255,0.3); margin-bottom: 28px; }
           .ll-brand-accent { color: #0e9090; }
           .eyebrow { font-family: 'JetBrains Mono', monospace; color: #0e9090; font-size: 10px; letter-spacing: 0.2em; margin-bottom: 16px; display: block; }
@@ -176,9 +173,25 @@ export default function LiveryLive() {
     );
   }
 
+  // ── MAIN PROPOSAL ──
   return (
     <div className="proposal-wrap">
       <canvas id="ll-bg-canvas" className="bg-canvas" />
+
+      {/* CALENDLY MODAL */}
+      {calendlyOpen && (
+        <div className="cal-overlay" onClick={e => { if (e.target.classList.contains('cal-overlay')) setCalendlyOpen(false); }}>
+          <div className="cal-modal">
+            <button className="cal-close" onClick={() => setCalendlyOpen(false)}>✕</button>
+            <div
+              className="calendly-inline-widget"
+              data-url="https://calendly.com/tom-learnlabmedia/30min"
+              style={{minWidth:'320px', height:'650px'}}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="proposal">
 
         {/* HERO */}
@@ -186,7 +199,7 @@ export default function LiveryLive() {
           <div className="inner">
             <div className="eyebrow teal">// PREPARED_EXCLUSIVELY_FOR · MARCH 2026</div>
             <h1>Livery <span className="hl-teal">Live.</span></h1>
-            <p className="hero-sub">A content and growth strategy to put Livery Live in front of every yard owner in the UK.</p>
+            <p className="hero-sub">A content and growth strategy to get Livery Live in front of the yard owners who need it — across the UK and beyond.</p>
             <div className="hero-tags">
               <span className="htag">LearnLab Studio</span>
               <span className="htag">Confidential</span>
@@ -199,20 +212,24 @@ export default function LiveryLive() {
         <section className="section">
           <div className="inner">
             <div className="eyebrow teal">// THE_SITUATION</div>
-            <h2>Great product.<br /><span className="hl-teal">Nobody knows it yet.</span></h2>
-            <p className="lead">You've built something genuinely useful — yard managers are calling it a game changer, something they wish they'd found sooner. The product works. The testimonials prove it. The problem is the equestrian world still hasn't heard about it at scale.</p>
-            <div className="three-grid">
-              {[
-                { icon: '📵', title: 'No content presence', body: 'No regular video, no social content engine, no reason for a yard owner scrolling Facebook on a Tuesday evening to stop and pay attention.' },
-                { icon: '🔁', title: 'Rebrand incoming', body: "You're about to refresh the brand. This is the exact right moment to build content infrastructure that carries the new identity from day one." },
-                { icon: '⏱️', title: 'The window is now', body: 'Arena booking is live. New features shipping. Every week without content is a week your competitors could close the gap.' },
-              ].map((c, i) => (
-                <div key={i} className="card">
-                  <div className="card-icon">{c.icon}</div>
-                  <h4>{c.title}</h4>
-                  <p>{c.body}</p>
-                </div>
-              ))}
+            <h2>The product is there.<br /><span className="hl-teal">Now it needs an audience.</span></h2>
+            <p className="lead">Livery Live is already solving real problems for real yards — the testimonials on your site make that clear. The opportunity now is getting that story in front of the thousands of yard owners who haven't heard of you yet. That's where we come in.</p>
+            <div className="three-grid equal-cards">
+              <div className="card">
+                <div className="card-icon">📵</div>
+                <h4>Building from a low base</h4>
+                <p>There's no consistent content engine yet — no video, no regular social presence. That's not a criticism, it's an opportunity. Starting fresh means we get to do it properly from day one.</p>
+              </div>
+              <div className="card">
+                <div className="card-icon">🔁</div>
+                <h4>Rebrand timing is perfect</h4>
+                <p>A new brand identity without content to carry it is a missed moment. If we build the content infrastructure now, the rebrand lands with real momentum behind it.</p>
+              </div>
+              <div className="card">
+                <div className="card-icon">⏱️</div>
+                <h4>The market is moving</h4>
+                <p>Arena booking is live. The product is expanding. This is exactly the right time to start telling that story loudly — before someone else fills that space.</p>
+              </div>
             </div>
           </div>
         </section>
@@ -222,14 +239,14 @@ export default function LiveryLive() {
           <div className="inner">
             <div className="eyebrow teal">// THE_STRATEGY</div>
             <h2>One filming day.<br /><span className="hl-teal">Eight weeks of content.</span></h2>
-            <p className="lead">Every yard visit extracts maximum value. Here's how it compounds.</p>
+            <p className="lead">Every yard visit extracts maximum value. One serious day of filming produces enough material to keep Livery Live's channels active for two months. Here's how it works.</p>
             <div className="flywheel">
               {[
-                { n: '01', label: 'Full Production Day', desc: 'On-site at a real yard. Pro kit. 2–3 testimonials, founders content, app in use on real phones, cinematic b-roll.' },
-                { n: '02', label: 'Hero Edits', desc: '2–3 polished 3–5 min films. Testimonials, brand films, product demos — the anchor content everything else clips from.' },
-                { n: '03', label: '16x Short-Form', desc: 'Reels, TikTok, Facebook. Hook-led, platform-native. Engineered for reach and trial conversion.' },
-                { n: '04', label: 'Static & Ad Creative', desc: 'Carousels, feature spotlights, social proof tiles, retargeting ads — all from one day of footage.' },
-                { n: '05', label: 'New Sign-Ups', desc: 'Real yards. Real stories. The content builds trust that converts cold audiences into trial starts.', accent: true },
+                { n: '01', label: 'Full Production Day', desc: 'On-site at a real yard with professional kit. Multiple testimonials, founder content, app being used on real phones, cinematic b-roll of the yard.' },
+                { n: '02', label: 'Hero Edits', desc: '2–3 polished films at 3–5 minutes each. These are the anchor pieces everything else gets clipped from.' },
+                { n: '03', label: '16x Short-Form', desc: 'Platform-native cuts for Instagram, TikTok and Facebook. Hook-led, built to stop the scroll and drive trial sign-ups.' },
+                { n: '04', label: 'Static & Ad Creative', desc: 'Carousel posts, feature spotlights, social proof tiles and ad creative — all pulled from the same day of footage.' },
+                { n: '05', label: 'New Sign-Ups', desc: 'Real yards, real stories, real results. The content builds the trust that turns a cold audience into paying customers.', accent: true },
               ].map((s, i, arr) => (
                 <div key={i} className="fw-wrap">
                   <div className={`fw-step ${s.accent ? 'fw-accent' : ''}`}>
@@ -249,37 +266,51 @@ export default function LiveryLive() {
           <div className="inner">
             <div className="eyebrow teal">// THE_PACKAGE</div>
             <h2>The Field.<br /><span className="hl-orange">£2,499<span style={{fontSize:'22px',fontWeight:400}}>/mo</span></span></h2>
-            <p className="lead">One full production day per month on-site. Top-tier equipment. Multiple outputs. Every day compounds into a growing content library that works for you 24/7.</p>
+            <p className="lead">One full production day per month, on-site at a real yard. Professional equipment, proper editing, a complete content system. I cover my own travel expenses across the UK — you just need to open the gate.</p>
             <div className="pkg-grid">
               <div className="pkg-main">
                 <div className="pkg-tag">// MONTHLY_AUTHORITY</div>
-                {[
-                  { title: 'Monthly Deployment', desc: '1 full production day on-site. Pro camera, audio, lighting. Multiple locations and subjects in a single day.' },
-                  { title: 'Master Asset Production', desc: '2–3 high-fidelity hero edits per month — testimonials, founder sits, product demos, whatever the month calls for.' },
-                  { title: '16x Growth Clips', desc: 'Platform-native short-form cuts for Instagram, TikTok, Facebook. Engineered for reach and conversion.' },
-                  { title: 'Static & Ad Creative', desc: 'Carousel posts, feature spotlights, social proof tiles, and ad creative variants every month.' },
-                  { title: 'Transferable Days', desc: "Unused filming days roll over. If a month doesn't suit, bank it and double up the next." },
-                  { title: 'Growth Advisory', desc: 'Monthly strategy session — what to film, which stories to tell, which features to push, how to deploy the content.' },
-                ].map((item, i) => (
-                  <div key={i} className="pkg-item">
-                    <span className="pkg-dash">—</span>
-                    <div>
-                      <strong>{item.title}</strong>
-                      <span>{item.desc}</span>
+                <div className="pkg-items">
+                  {[
+                    { title: 'Monthly Production Day', desc: 'I come to you. One full day on-site with professional camera, audio and lighting. Multiple subjects, multiple locations, all in a single visit.' },
+                    { title: 'Hero Video Edits', desc: '2–3 high-quality finished films per month — testimonials, founder sits, product demos, whatever makes most sense that month.' },
+                    { title: '16 Growth Clips', desc: 'Short-form cuts for Instagram, TikTok and Facebook. Built to perform on each platform, not just repurposed from the same master file.' },
+                    { title: 'Static & Ad Creative', desc: 'Carousel posts, feature spotlights and ad creative variations delivered alongside the video content each month.' },
+                    { title: 'Days Roll Over', desc: "If a month doesn't work logistically, the day banks and we double up the following month. Nothing is wasted." },
+                    { title: 'Monthly Analytics Review', desc: "Every month we look at what's working — what's getting reach, what's converting, what to double down on. You always know where things stand." },
+                    { title: 'Growth Strategy Session', desc: 'A monthly call to plan the next filming day — which yards to visit, which stories to tell, which features to push.' },
+                    { title: 'Travel Covered', desc: 'I cover my own travel expenses across the UK. Willing to go wherever the best stories are.' },
+                  ].map((item, i) => (
+                    <div key={i} className="pkg-item">
+                      <div className="pkg-dot" />
+                      <div>
+                        <strong>{item.title}</strong>
+                        <span>{item.desc}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
-                <a href="mailto:tom@learnlabmedia.com" className="btn-orange">Book Deployment Call →</a>
+                  ))}
+                </div>
+                <button className="btn-orange" onClick={() => setCalendlyOpen(true)}>
+                  Book a Call — I'll Send Over a Proposed Time
+                </button>
               </div>
               <div className="pkg-side">
                 <div className="side-card">
                   <div className="eyebrow teal" style={{marginBottom:'10px'}}>// WHY_ONCE_A_MONTH</div>
-                  <p>Weekly content without monthly filming is impossible to sustain at quality. Monthly filming without a weekly plan wastes the footage. The Field solves both.</p>
+                  <p>Weekly content without a monthly filming day is impossible to sustain at any real quality. A filming day without a content plan wastes half the footage. The Field connects both ends of that problem.</p>
                 </div>
                 <div className="side-card side-teal">
                   <div className="eyebrow teal" style={{marginBottom:'10px'}}>// WHAT_WE_FILM</div>
                   <ul className="film-list">
-                    {['Yard owner testimonials','Founder & team sit-downs','App in use on real phones','Cinematic yard b-roll','Feature walkthroughs','Seasonal content hooks','Problem/solution narratives'].map((item, i) => (
+                    {[
+                      'Yard owner testimonials',
+                      'Founder and team interviews',
+                      'The app being used on real phones',
+                      'Cinematic b-roll of yard life',
+                      'Feature walkthroughs and demos',
+                      'Seasonal content and timely hooks',
+                      'Problem-led narrative pieces',
+                    ].map((item, i) => (
                       <li key={i}>{item}</li>
                     ))}
                   </ul>
@@ -294,12 +325,41 @@ export default function LiveryLive() {
           <div className="inner">
             <div className="eyebrow teal">// THE_ROADMAP</div>
             <h2>First <span className="hl-teal">90 days.</span></h2>
-            <p className="lead">A concrete plan so there's no ambiguity about what happens when we start.</p>
-            <div className="three-grid">
+            <p className="lead">Here's exactly what the first three months look like so there's no ambiguity about where we start or where we're heading.</p>
+            <div className="three-grid equal-cards">
               {[
-                { month: 'Month 01', title: 'Foundation', items: ['Strategy session — identify best yards, strongest stories, key features to push','First filming day — founder story, 2 yard testimonials, app walkthrough','Hero edit: brand film + 2 testimonial cuts','16 short-form clips delivered and scheduled','Ad creative for trial conversion campaign','Social channels refreshed for new brand direction'] },
-                { month: 'Month 02', title: 'Momentum', items: ['Second filming day — new yard, different region, different angle','Arena booking feature content push','Retargeting ads live — testimonial clips targeting site visitors','Carousel series: feature-by-feature app explainers','Review what\'s landing, what to double down on'] },
-                { month: 'Month 03', title: 'Compounding', items: ['Third filming day — growing yard network, more story variety','Content library now 40+ assets deep','Paid social scaling — what converts gets budget behind it','Referral programme content if launched','Full quarterly review and strategy refresh'] },
+                {
+                  month: 'Month 01', title: 'Foundation',
+                  items: [
+                    'Strategy session to identify the strongest yards, stories and features to lead with',
+                    'First filming day — founder story, two yard testimonials, app walkthrough',
+                    'Brand film and two testimonial hero edits delivered',
+                    '16 short-form clips scheduled across the channels',
+                    'Ad creative built for trial conversion',
+                    'Social channels refreshed to support the rebrand direction',
+                    'First monthly analytics review at end of month',
+                  ]
+                },
+                {
+                  month: 'Month 02', title: 'Momentum',
+                  items: [
+                    'Second filming day at a new yard somewhere in the UK',
+                    'Dedicated content push around the arena booking feature',
+                    'Retargeting ads running — testimonial clips targeting people who\'ve already visited the site',
+                    'Carousel series launching — one feature per post',
+                    'Monthly analytics review — what\'s landing, what to adjust',
+                  ]
+                },
+                {
+                  month: 'Month 03', title: 'Compounding',
+                  items: [
+                    'Third filming day — content library and yard network growing',
+                    '40+ assets in the library by this point',
+                    'Paid social scaling — budget going behind what\'s proven to convert',
+                    'Referral programme content if that\'s been launched',
+                    'Full quarterly review and strategy refresh for the next phase',
+                  ]
+                },
               ].map((m, i) => (
                 <div key={i} className="card">
                   <div className="rm-mo">{m.month}</div>
@@ -318,7 +378,7 @@ export default function LiveryLive() {
           <div className="inner">
             <div className="eyebrow teal">// CONTENT_EXAMPLE</div>
             <h2>What the social<br /><span className="hl-teal">content looks like.</span></h2>
-            <p className="lead">Each filming day produces carousel posts like this — clean, feature-led, built for the equestrian audience on Instagram.</p>
+            <p className="lead">Each filming day produces carousel posts like this — clean, feature-led, built for the equestrian audience on Instagram. Tap through to see how a feature spotlight series flows.</p>
             <div className="carousel-demo">
               <div className="phone-frame">
                 <div className="phone-notch" />
@@ -347,31 +407,31 @@ export default function LiveryLive() {
               <div className="carousel-info">
                 <div className="eyebrow teal">// CAROUSEL_FORMAT</div>
                 <h3>Feature Spotlight Posts</h3>
-                <p>One post per feature. Each slide introduces a different capability — keeping liveries engaged and showing yard owners exactly what they're getting. Tap through to preview.</p>
+                <p>One post, one feature. Each slide shows a different capability of the app — simple, clean, and built for the person scrolling through their feed on a yard at 7am. Tap through to preview the format.</p>
                 <div className="slide-btns">
                   {slides.map((s, i) => (
                     <button key={i} className={`slide-btn ${i === activeSlide ? 'slide-btn-a' : ''}`} onClick={() => setActiveSlide(i)}>{s.label}</button>
                   ))}
                 </div>
-                <p className="disclaimer">Placeholder mockup — real posts will use actual app screenshots and rebrand colours.</p>
+                <p className="disclaimer">Placeholder mockup — real posts will use actual app screenshots and Livery Live's rebrand colours.</p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ROI */}
-        <section className="section section-dark">
+        {/* ROI CALCULATOR */}
+        <section className="section section-dark roi-section">
           <div className="inner">
             <div className="eyebrow teal">// GROWTH_TOOL</div>
             <h2>The ROI<br /><span className="hl-teal">Calculator.</span></h2>
-            <p className="lead">We built this for you. Drop it on your pricing page and every prospective yard owner gets an instant, personalised business case for switching to Livery Live.</p>
+            <p className="lead">Built this specifically for Livery Live. Drop it on your pricing page and every prospective yard owner gets an instant, personalised reason to switch. A sales tool that works around the clock without anyone having to lift a finger.</p>
             <div className="roi-widget">
               <div className="roi-inputs">
                 {[
                   { label: 'Horses on your yard', val: horses, set: setHorses, min: 5, max: 100, step: 5, pre: '', suf: '' },
                   { label: 'Weekly admin hours', val: adminHours, set: setAdminHours, min: 2, max: 40, step: 1, pre: '', suf: ' hrs' },
                   { label: 'Hourly admin wage', val: hourlyWage, set: setHourlyWage, min: 8, max: 30, step: 1, pre: '£', suf: '' },
-                  { label: 'Missed charges / month', val: missedCharges, set: setMissedCharges, min: 0, max: 20, step: 1, pre: '', suf: '' },
+                  { label: 'Missed charges per month', val: missedCharges, set: setMissedCharges, min: 0, max: 20, step: 1, pre: '', suf: '' },
                   { label: 'Average charge value', val: chargeValue, set: setChargeValue, min: 5, max: 100, step: 5, pre: '£', suf: '' },
                 ].map((f, i) => (
                   <div key={i} className="roi-field">
@@ -379,7 +439,15 @@ export default function LiveryLive() {
                       <span>{f.label}</span>
                       <strong>{f.pre}{f.val}{f.suf}</strong>
                     </div>
-                    <input type="range" min={f.min} max={f.max} step={f.step} value={f.val} onChange={e => f.set(Number(e.target.value))} className="roi-slider" />
+                    <input
+                      type="range"
+                      min={f.min}
+                      max={f.max}
+                      step={f.step}
+                      value={f.val}
+                      onChange={e => f.set(Number(e.target.value))}
+                      className="roi-slider"
+                    />
                   </div>
                 ))}
               </div>
@@ -401,7 +469,7 @@ export default function LiveryLive() {
               <div className="embed-head">
                 <div>
                   <div className="eyebrow teal" style={{margin:0}}>// FREE_TO_USE — THIS_IS_YOURS</div>
-                  <p>Copy the code below and paste it anywhere on the Livery Live site. No dependencies, no account needed.</p>
+                  <p>Copy the snippet below and paste it anywhere on the Livery Live site. No dependencies, no third-party accounts needed.</p>
                 </div>
                 <button className="copy-btn" onClick={() => { navigator.clipboard.writeText(roiEmbedCode); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
                   {copied ? '✓ Copied' : 'Copy Code'}
@@ -416,16 +484,16 @@ export default function LiveryLive() {
         <section className="section">
           <div className="inner">
             <div className="eyebrow teal">// BUSINESS_ADVISORY</div>
-            <h2>Six recommendations<br /><span className="hl-teal">worth acting on.</span></h2>
-            <p className="lead">Outside of content, there are quick wins on the product and commercial side that could meaningfully move the needle.</p>
-            <div className="adv-grid">
+            <h2>Six things worth<br /><span className="hl-teal">looking at.</span></h2>
+            <p className="lead">Separate from the content work, there are a few commercial and product moves that could meaningfully improve conversion and retention without a huge amount of effort.</p>
+            <div className="adv-grid equal-cards">
               {[
-                { n: '01', title: 'Cut the trial from 6 weeks to 2', body: "Six weeks is too long. People drift, forget why they signed up, and never properly commit. Two weeks is enough to feel the value — and it creates urgency. If the product is good (it is), the decision should come quickly.", tag: 'High Impact', feat: true },
-                { n: '02', title: 'Capture card details at sign-up', body: "No charge until the trial ends — but ask for the card upfront. It filters out people who were never going to convert, and when they do convert it's frictionless. Standard SaaS practice. You're leaving conversions on the table without it.", tag: 'High Impact', feat: true },
-                { n: '03', title: 'Launch a referral programme', body: 'Yard owners talk constantly — at shows, on forums, in WhatsApp groups. "Refer a yard, get one month free" is your cheapest possible acquisition channel and it doesn\'t exist yet.', tag: 'Quick Win', feat: false },
-                { n: '04', title: 'Make arena booking its own moment', body: "This is a product expansion, not just a feature update. It deserves a launch video, dedicated posts, ads targeted at yards with arenas. It's currently barely visible.", tag: 'Quick Win', feat: false },
-                { n: '05', title: 'Lead with the price in ads', body: '£2/month per horse is extraordinary value. A 30-horse yard pays £60/month. That number needs to be in ad headlines, not buried on a pricing page. Price transparency at this level is a conversion driver, not a deterrent.', tag: 'Ad Strategy', feat: false },
-                { n: '06', title: 'Build a short onboarding video series', body: 'New yards that struggle in week one quietly cancel. Three short setup videos — getting started, adding your team, your first invoice — would reduce early churn and cut your support load.', tag: 'Retention', feat: false },
+                { n: '01', title: 'Shorten the trial to two weeks', body: "Six weeks gives people too much room to drift. They sign up, get busy, forget about it, and quietly disappear. Two weeks keeps the momentum from the sign-up decision — and if the product is good, which it clearly is, two weeks is more than enough to feel the value.", tag: 'High Impact', feat: true },
+                { n: '02', title: 'Take card details upfront', body: "No charge until the trial ends, but capture the card at sign-up. It filters out the people who were never going to convert anyway, and for the ones who do convert, there's no friction — it just happens. Every SaaS that grows past a certain point does this.", tag: 'High Impact', feat: true },
+                { n: '03', title: 'Build a referral programme', body: "Yard owners are a tight-knit community. They talk at shows, in WhatsApp groups, on forums. A simple referral mechanic — refer a yard, get a free month — would tap into that network properly. It doesn't exist yet and it should.", tag: 'Quick Win', feat: false },
+                { n: '04', title: 'Give arena booking its own launch moment', body: "This is more than a feature update — it's a new use case. It deserves its own content push, its own announcement, its own ad campaign. Right now it's a line on the nav. It could be a reason someone switches.", tag: 'Quick Win', feat: false },
+                { n: '05', title: 'Put the price front and centre in ads', body: "£2 per horse per month is an extraordinary deal. A yard with 30 horses pays £60 a month. That number should be in the headline of every ad you run, not buried three clicks deep. Transparency at that price level is a conversion tool, not a liability.", tag: 'Ad Strategy', feat: false },
+                { n: '06', title: 'A short onboarding video series', body: "New yards that can't figure out the basics in week one quietly cancel and never come back. Three short videos — getting set up, adding your team, sending your first invoice — would cut early churn and reduce the support load at the same time.", tag: 'Retention', feat: false },
               ].map((a, i) => (
                 <div key={i} className={`adv-card ${a.feat ? 'adv-feat' : ''}`}>
                   <div className="adv-n">{a.n}</div>
@@ -443,10 +511,10 @@ export default function LiveryLive() {
           <div className="inner creds-inner">
             <div>
               <div className="eyebrow teal">// WHY_LEARNLAB</div>
-              <h2>Real yards.<br /><span className="hl-teal">Real experience.</span></h2>
-              <p>We specialise in content for agritech and rural businesses — businesses where trust is everything and authentic storytelling is the only thing that converts.</p>
-              <p>The testimonial here was filmed on-farm for another agritech business in the UK. Same audience, same environment — real people, real locations, no studio polish.</p>
-              <p>This is exactly the kind of content we'd create for Livery Live.</p>
+              <h2>We know this<br /><span className="hl-teal">world.</span></h2>
+              <p>The content that works for rural and agricultural businesses isn't the same as what works for a tech startup or a fashion brand. It needs to feel real — real people, real places, real problems being solved.</p>
+              <p>The film below was shot on-farm for another agritech company in the UK. Same audience profile, same approach — go to where the story is, film it properly, let the people speak for themselves.</p>
+              <p>That's exactly what we'd bring to Livery Live, wherever in the UK the best yards are.</p>
             </div>
             <div>
               <div className="video-container">
@@ -458,7 +526,7 @@ export default function LiveryLive() {
                   style={{position:'absolute',top:0,left:0,width:'100%',height:'100%'}}
                 />
               </div>
-              <div className="video-label">Real yards. Real results.</div>
+              <div className="video-label">Filmed on-farm, UK. Agritech testimonial.</div>
             </div>
           </div>
         </section>
@@ -467,9 +535,9 @@ export default function LiveryLive() {
         <section className="section cta-section">
           <div className="cta-inner">
             <div className="eyebrow teal">// NEXT_STEPS</div>
-            <h2>Let's build this<br /><span className="hl-orange">together.</span></h2>
-            <p>Whether you want to start with a single filming day or go straight into The Field — let's get on a call and make it happen.</p>
-            <a href="mailto:tom@learnlabmedia.com" className="btn-orange-lg">Get In Touch →</a>
+            <h2>Ready when<br /><span className="hl-orange">you are.</span></h2>
+            <p>I'll be in touch shortly with a proposed time to run through this together. If you want to get something in the diary sooner, book directly below — happy to talk through any of it.</p>
+            <button className="btn-orange-lg" onClick={() => setCalendlyOpen(true)}>Book a Call →</button>
           </div>
         </section>
 
@@ -480,7 +548,16 @@ export default function LiveryLive() {
 
       <script dangerouslySetInnerHTML={{ __html: particleScript }} />
 
-      <style jsx global>{`body { margin: 0; background: #0a1628; }`}</style>
+      <style jsx global>{`
+        body { margin: 0; background: #0a1628; }
+        .roi-section { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='80'%3E🐴%3C/text%3E%3C/svg%3E") 16 16, auto; }
+        .cal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px); animation: fadeIn 0.2s ease-out; }
+        .cal-modal { background: #fff; border-radius: 20px; width: 100%; max-width: 700px; position: relative; overflow: hidden; animation: slideUp 0.3s ease-out; }
+        .cal-close { position: absolute; top: 16px; right: 16px; background: rgba(0,0,0,0.1); border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 14px; cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .cal-close:hover { background: rgba(0,0,0,0.2); }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
+
       <style jsx>{`
         .proposal-wrap { position: relative; min-height: 100vh; background: linear-gradient(160deg, #0a1628 0%, #0d1f35 40%, #0a1e1e 100%); }
         .bg-canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
@@ -493,7 +570,7 @@ export default function LiveryLive() {
         h4 { font-size: 17px; font-weight: 700; color: #fff; margin-bottom: 10px; }
         .hl-teal { color: #0e9090; }
         .hl-orange { color: #f97316; }
-        .lead { color: rgba(255,255,255,0.55); font-size: 16px; line-height: 1.7; max-width: 660px; margin-bottom: 56px; }
+        .lead { color: rgba(255,255,255,0.55); font-size: 16px; line-height: 1.7; max-width: 680px; margin-bottom: 56px; }
         .section { padding: 100px 48px; }
         .section-dark { background: rgba(0,0,0,0.25); border-top: 1px solid rgba(14,144,144,0.12); border-bottom: 1px solid rgba(14,144,144,0.12); }
         .inner { max-width: 1100px; margin: 0 auto; }
@@ -505,16 +582,19 @@ export default function LiveryLive() {
         .htag { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; padding: 6px 14px; border: 1px solid rgba(14,144,144,0.3); border-radius: 6px; color: rgba(255,255,255,0.35); }
 
         .three-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+        .equal-cards { align-items: stretch; }
+        .equal-cards .card { display: flex; flex-direction: column; }
+
         .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.2); border-radius: 20px; padding: 34px 28px; transition: 0.4s cubic-bezier(0.22,1,0.36,1); }
         .card:hover { transform: translateY(-6px); border-color: rgba(14,144,144,0.5); background: rgba(14,144,144,0.06); }
         .card-icon { font-size: 28px; margin-bottom: 16px; }
-        .card p { color: rgba(255,255,255,0.5); font-size: 14px; line-height: 1.6; margin: 0; }
+        .card p { color: rgba(255,255,255,0.5); font-size: 14px; line-height: 1.6; margin: 0; flex: 1; }
         .rm-mo { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #0e9090; letter-spacing: 0.2em; margin-bottom: 8px; }
-        .rm-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 9px; }
+        .rm-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 9px; flex: 1; }
         .rm-list li { color: rgba(255,255,255,0.5); font-size: 13px; line-height: 1.5; padding-left: 14px; position: relative; }
         .rm-list li::before { content: '·'; color: #0e9090; position: absolute; left: 0; font-size: 16px; line-height: 1.2; }
 
-        .flywheel { display: flex; align-items: flex-start; overflow-x: auto; padding-bottom: 8px; gap: 0; }
+        .flywheel { display: flex; align-items: flex-start; overflow-x: auto; padding-bottom: 8px; }
         .fw-wrap { display: flex; align-items: flex-start; flex-shrink: 0; }
         .fw-step { background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.2); border-radius: 18px; padding: 26px 22px; width: 175px; transition: 0.3s; flex-shrink: 0; }
         .fw-step:hover { border-color: rgba(14,144,144,0.5); transform: translateY(-4px); }
@@ -527,11 +607,12 @@ export default function LiveryLive() {
         .pkg-grid { display: grid; grid-template-columns: 1fr 350px; gap: 26px; }
         .pkg-main { background: rgba(255,255,255,0.04); border: 1px solid rgba(249,115,22,0.35); border-radius: 24px; padding: 46px; }
         .pkg-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #f97316; letter-spacing: 0.2em; margin-bottom: 30px; display: block; }
-        .pkg-item { display: flex; gap: 14px; margin-bottom: 20px; }
-        .pkg-dash { color: #f97316; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+        .pkg-items { display: flex; flex-direction: column; gap: 20px; margin-bottom: 36px; }
+        .pkg-item { display: flex; gap: 14px; align-items: flex-start; }
+        .pkg-dot { width: 6px; height: 6px; border-radius: 50%; background: #f97316; flex-shrink: 0; margin-top: 7px; }
         .pkg-item strong { display: block; color: #fff; font-size: 15px; margin-bottom: 4px; }
         .pkg-item span { color: rgba(255,255,255,0.5); font-size: 14px; line-height: 1.5; }
-        .btn-orange { display: block; width: 100%; padding: 16px; background: #f97316; color: #fff; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: 0.08em; font-size: 13px; transition: 0.3s; margin-top: 30px; text-align: center; text-decoration: none; box-sizing: border-box; }
+        .btn-orange { display: block; width: 100%; padding: 16px; background: #f97316; color: #fff; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: 0.06em; font-size: 12px; transition: 0.3s; text-align: center; text-decoration: none; box-sizing: border-box; }
         .btn-orange:hover { box-shadow: 0 0 28px rgba(249,115,22,0.5); transform: scale(1.02); }
         .pkg-side { display: flex; flex-direction: column; gap: 16px; }
         .side-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.2); border-radius: 18px; padding: 24px; }
@@ -539,7 +620,7 @@ export default function LiveryLive() {
         .side-teal { border-color: rgba(14,144,144,0.3); }
         .film-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 9px; }
         .film-list li { color: rgba(255,255,255,0.5); font-size: 14px; padding-left: 16px; position: relative; }
-        .film-list li::before { content: '—'; color: #0e9090; position: absolute; left: 0; }
+        .film-list li::before { content: '·'; color: #0e9090; position: absolute; left: 0; font-size: 16px; line-height: 1.2; }
 
         .carousel-demo { display: grid; grid-template-columns: auto 1fr; gap: 56px; align-items: center; }
         .phone-frame { width: 228px; height: 456px; background: #111827; border-radius: 34px; border: 2px solid rgba(255,255,255,0.1); overflow: hidden; box-shadow: 0 28px 56px rgba(0,0,0,0.7); flex-shrink: 0; }
@@ -589,12 +670,12 @@ export default function LiveryLive() {
         .code-pre { margin: 0; padding: 22px 30px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: rgba(14,144,144,0.65); line-height: 1.6; white-space: pre-wrap; word-break: break-all; overflow-x: auto; }
 
         .adv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-        .adv-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.18); border-radius: 20px; padding: 32px 28px; transition: 0.3s; }
+        .adv-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.18); border-radius: 20px; padding: 32px 28px; transition: 0.3s; display: flex; flex-direction: column; }
         .adv-card:hover { transform: translateY(-4px); border-color: rgba(14,144,144,0.4); }
         .adv-feat { border-color: rgba(249,115,22,0.35); background: rgba(249,115,22,0.04); }
         .adv-n { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #0e9090; letter-spacing: 0.2em; margin-bottom: 10px; }
-        .adv-card p { color: rgba(255,255,255,0.5); font-size: 14px; line-height: 1.6; margin: 0 0 16px; }
-        .adv-tag { display: inline-block; padding: 4px 12px; background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.3); color: #f97316; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; border-radius: 6px; }
+        .adv-card p { color: rgba(255,255,255,0.5); font-size: 14px; line-height: 1.6; margin: 0 0 16px; flex: 1; }
+        .adv-tag { display: inline-block; padding: 4px 12px; background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.3); color: #f97316; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; border-radius: 6px; align-self: flex-start; }
 
         .creds-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
         .creds-inner p { color: rgba(255,255,255,0.5); font-size: 15px; line-height: 1.7; margin-bottom: 14px; }
@@ -605,12 +686,13 @@ export default function LiveryLive() {
         .cta-inner { max-width: 580px; margin: 0 auto; }
         .cta-inner h2 { font-size: 50px; }
         .cta-inner p { color: rgba(255,255,255,0.5); font-size: 16px; line-height: 1.7; margin-bottom: 38px; }
-        .btn-orange-lg { display: inline-block; padding: 20px 52px; background: #f97316; color: #fff; border-radius: 14px; font-weight: 800; text-decoration: none; text-transform: uppercase; letter-spacing: 0.08em; font-size: 15px; transition: 0.3s; }
+        .btn-orange-lg { display: inline-block; padding: 20px 52px; background: #f97316; color: #fff; border: none; border-radius: 14px; font-weight: 800; text-decoration: none; text-transform: uppercase; letter-spacing: 0.08em; font-size: 15px; transition: 0.3s; cursor: pointer; }
         .btn-orange-lg:hover { box-shadow: 0 0 32px rgba(249,115,22,0.55); transform: scale(1.03); }
 
         .footer-note { text-align: center; padding: 34px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.1); letter-spacing: 0.1em; border-top: 1px solid rgba(14,144,144,0.1); }
 
         @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
         @media (max-width: 900px) {
           h1 { font-size: 50px; }

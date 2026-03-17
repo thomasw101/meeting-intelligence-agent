@@ -8,7 +8,6 @@ export default function Home() {
   const [error, setError] = useState(false);
 
   const handleAccessTools = () => {
-    // If already registered, skip straight to dashboard
     const existing = localStorage.getItem('ll_user');
     if (existing) {
       router.push('/dashboard');
@@ -21,6 +20,7 @@ export default function Home() {
     e.preventDefault();
     const code = accessCode.trim().toUpperCase();
     const clientMap = {
+      'LIVERY2026': '/clients/liverylive',
       'NIKE': '/clients/nike',
       'ADIDAS': '/clients/adidas'
     };
