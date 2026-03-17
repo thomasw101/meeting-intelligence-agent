@@ -7,18 +7,14 @@ export default function LiveryLive() {
   const [calendlyOpen, setCalendlyOpen] = useState(false);
   const canvasRef = useRef(null);
 
-  // ROI state
   const [horses, setHorses] = useState(20);
   const [adminHours, setAdminHours] = useState(10);
   const [hourlyWage, setHourlyWage] = useState(12);
   const [missedCharges, setMissedCharges] = useState(5);
   const [avgCharge, setAvgCharge] = useState(15);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
-  // Particles in useEffect so they always fire
   useEffect(() => {
     if (!mounted) return;
     const canvas = canvasRef.current;
@@ -26,68 +22,36 @@ export default function LiveryLive() {
     const ctx = canvas.getContext('2d');
     let animId;
     const particles = [];
-
-    function resize() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
+    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     resize();
     window.addEventListener('resize', resize);
-
     for (let i = 0; i < 90; i++) {
-      particles.push({
-        x: Math.random() * window.innerWidth,
-        y: Math.random() * window.innerHeight,
-        r: Math.random() * 2 + 0.4,
-        dx: (Math.random() - 0.5) * 0.35,
-        dy: (Math.random() - 0.5) * 0.35,
-        o: Math.random() * 0.4 + 0.08,
-        c: Math.random() > 0.5 ? '14,144,144' : '255,255,255',
-      });
+      particles.push({ x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight, r: Math.random() * 2 + 0.4, dx: (Math.random() - 0.5) * 0.35, dy: (Math.random() - 0.5) * 0.35, o: Math.random() * 0.4 + 0.08, c: Math.random() > 0.5 ? '14,144,144' : '255,255,255' });
     }
-
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      particles.forEach(p => {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${p.c},${p.o})`;
-        ctx.fill();
-        p.x += p.dx;
-        p.y += p.dy;
-        if (p.x < 0 || p.x > canvas.width) p.dx *= -1;
-        if (p.y < 0 || p.y > canvas.height) p.dy *= -1;
-      });
+      particles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fillStyle = `rgba(${p.c},${p.o})`; ctx.fill(); p.x += p.dx; p.y += p.dy; if (p.x < 0 || p.x > canvas.width) p.dx *= -1; if (p.y < 0 || p.y > canvas.height) p.dy *= -1; });
       animId = requestAnimationFrame(draw);
     }
     draw();
-
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener('resize', resize);
-    };
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize); };
   }, [mounted]);
 
   useEffect(() => {
     if (calendlyOpen) {
       const existing = document.getElementById('calendly-script');
-      if (!existing) {
-        const script = document.createElement('script');
-        script.id = 'calendly-script';
-        script.src = 'https://assets.calendly.com/assets/external/widget.js';
-        script.async = true;
-        document.head.appendChild(script);
-      }
+      if (!existing) { const script = document.createElement('script'); script.id = 'calendly-script'; script.src = 'https://assets.calendly.com/assets/external/widget.js'; script.async = true; document.head.appendChild(script); }
     }
   }, [calendlyOpen]);
 
-  // Correct ROI formula matching the original tool
+  // Correct ROI formula — matches original tool
   const hoursSavedMonthly = Math.round(adminHours * 0.6 * 4.3);
   const revRecovered = missedCharges * avgCharge * 12;
   const appCost = horses * 2 * 12;
   const netBenefit = revRecovered - appCost;
   const timeSavingsValue = hoursSavedMonthly * hourlyWage * 12;
   const totalAnnualBenefit = netBenefit + timeSavingsValue;
+  const perMonth = Math.round(totalAnnualBenefit / 12);
   const roi = appCost > 0 ? Math.round((totalAnnualBenefit / appCost) * 100) : 0;
 
   const roiEmbedCode = `<!-- LiveryLive ROI Calculator — built by LearnLab Studio -->
@@ -96,62 +60,48 @@ export default function LiveryLive() {
 (function(){
   var h=20,a=10,w=12,m=5,c=15;
   function calc(){
-    var hm=Math.round(a*0.6*4.3),rev=m*c*12,cost=h*2*12,net=rev-cost,tsv=hm*w*12,tot=net+tsv,roi=Math.round((tot/cost)*100);
+    var hm=Math.round(a*0.6*4.3),rev=m*c*12,cost=h*2*12,net=rev-cost,tsv=hm*w*12,tot=net+tsv,pm=Math.round(tot/12),roi=Math.round((tot/cost)*100);
     document.getElementById('ll-cost').textContent='£'+cost+'/yr';
     document.getElementById('ll-rev').textContent='+£'+rev+'/yr';
-    document.getElementById('ll-adm').textContent='+£'+tsv+'/yr';
+    document.getElementById('ll-hm').textContent=hm+' hrs/month';
+    document.getElementById('ll-tsv').textContent='+£'+tsv+'/yr';
     document.getElementById('ll-tot').textContent='£'+tot.toLocaleString();
+    document.getElementById('ll-pm').textContent="That's £"+pm.toLocaleString()+" per month back in your pocket";
     document.getElementById('ll-roi').textContent=roi+'%';
   }
-  function sl(id,v,min,max,step,label,pre,suf){
-    return '<div style="margin-bottom:22px"><div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:14px;color:#444">'+label+'</span><strong style="color:#0e9090">'+pre+v+suf+'</strong></div><input type="range" min="'+min+'" max="'+max+'" step="'+step+'" value="'+v+'" data-id="'+id+'" style="width:100%;accent-color:#0e9090;cursor:pointer"></div>';
+  function sl(id,v,min,max,step,label,pre,suf,desc){
+    return '<div style="margin-bottom:24px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><label style="font-size:14px;color:#4A6274;font-weight:500">'+label+'</label><span style="font-size:20px;font-weight:700;color:#1A2B3C">'+(pre==="£"?"£"+v:v)+(suf?" "+suf:"")+'</span></div>'+(desc?'<p style="font-size:12px;color:#8A9DAD;margin:0 0 8px;line-height:1.4">'+desc+'</p>':'')+'<input type="range" min="'+min+'" max="'+max+'" step="'+step+'" value="'+v+'" data-id="'+id+'" style="width:100%;height:6px;-webkit-appearance:none;appearance:none;background:linear-gradient(to right,#1A9FC7 0%,#1A9FC7 '+((v-min)/(max-min)*100)+'%,#E2EBF0 '+((v-min)/(max-min)*100)+'%,#E2EBF0 100%);border-radius:3px;outline:none;cursor:pointer"></div>';
   }
-  document.getElementById('ll-roi-calc').innerHTML='<div style="font-family:system-ui,sans-serif;max-width:800px;margin:0 auto;background:#f8fafa;border-radius:20px;padding:44px;border:1px solid #d0e8e8"><h2 style="margin:0 0 6px;font-size:26px;color:#0a2a2a">What could your yard save?</h2><p style="margin:0 0 32px;color:#666;font-size:15px">Adjust the sliders to see your estimated annual benefit from LiveryLive.</p><div style="display:grid;grid-template-columns:1fr 300px;gap:40px;align-items:start"><div>'+sl('h','20','5','100','5','Horses on your yard','','')+sl('a','10','2','40','1','Weekly admin hours','','hrs')+sl('w','12','8','30','1','Hourly admin wage','£','')+sl('m','5','0','20','1','Missed charges per month','','')+sl('c','15','5','50','5','Average charge value','£','')+'</div><div><div style="background:#fff;border-radius:14px;padding:24px;border:1px solid #d0e8e8;margin-bottom:16px"><div style="font-size:11px;letter-spacing:0.12em;color:#999;margin-bottom:14px;text-transform:uppercase">Your yard at a glance</div><div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f0f0;font-size:14px"><span style="color:#666">LiveryLive cost</span><span id="ll-cost" style="font-weight:600;color:#333"></span></div><div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f0f0;font-size:14px"><span style="color:#666">Revenue recovered</span><span id="ll-rev" style="font-weight:600;color:#0e9090"></span></div><div style="display:flex;justify-content:space-between;padding:9px 0;font-size:14px"><span style="color:#666">Admin time value</span><span id="ll-adm" style="font-weight:600;color:#0e9090"></span></div></div><div style="background:#0e9090;border-radius:14px;padding:24px;text-align:center"><div style="font-size:10px;letter-spacing:0.15em;color:rgba(255,255,255,0.65);margin-bottom:8px;text-transform:uppercase">Total Annual Benefit</div><div id="ll-tot" style="font-size:44px;font-weight:800;color:#fff;line-height:1"></div><div style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:8px">ROI: <span id="ll-roi" style="font-weight:700"></span></div></div></div></div></div>';
+  document.getElementById('ll-roi-calc').innerHTML='<div style="font-family:system-ui,sans-serif;max-width:860px;margin:0 auto;background:#fff;border:1px solid #E2EBF0;border-radius:20px;overflow:hidden;box-shadow:0 4px 40px rgba(0,0,0,0.04)"><div style="padding:32px 32px 0"><div style="display:inline-block;background:rgba(26,159,199,0.08);border-radius:20px;padding:6px 14px;font-size:11px;color:#1A9FC7;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;margin-bottom:16px;border:1px solid rgba(26,159,199,0.15)">Interactive Tool</div><h3 style="font-size:28px;font-weight:400;color:#1A2B3C;margin:0 0 4px">Livery Live ROI Calculator</h3><p style="font-size:14px;color:#8A9DAD;margin:0 0 32px;line-height:1.6">See how much time and money your yard could save. Adjust the sliders to match your yard.</p></div><div style="display:flex;flex-wrap:wrap"><div style="flex:1 1 340px;padding:0 32px 32px">'+sl('h','20','5','100','5','Horses on your yard','','horses','')+sl('a','10','1','40','1','Weekly admin hours','','hrs','Time spent on invoicing, records, feed charts, staff coordination')+sl('w','12','8','30','1','Hourly wage for admin','£','','Average hourly rate for the person doing the admin work')+sl('m','5','0','30','1','Missed charges per month','','','Extra services, arena bookings, or feed charges that slip through')+sl('c','15','5','50','5','Average charge value','£','','')+'</div><div style="flex:1 1 300px;padding:0 32px 32px;display:flex;flex-direction:column;gap:12px"><div style="background:#F0F6F9;border:1px solid #E2EBF0;border-radius:14px;padding:20px;margin-bottom:4px"><p style="font-size:11px;color:#8A9DAD;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px">Your yard at a glance</p><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="font-size:13px;color:#4A6274">LiveryLive cost</span><span id="ll-cost" style="font-size:13px;color:#1A2B3C;font-weight:600"></span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="font-size:13px;color:#4A6274">Revenue recovered</span><span id="ll-rev" style="font-size:13px;color:#34B87A;font-weight:600"></span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="font-size:13px;color:#4A6274">Admin hours saved</span><span id="ll-hm" style="font-size:13px;color:#34B87A;font-weight:600"></span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="font-size:13px;color:#4A6274">Admin rate</span><span style="font-size:13px;color:#1A2B3C">£'+w+'/hr</span></div><div style="border-top:1px solid #E2EBF0;margin-top:12px;padding-top:12px;display:flex;justify-content:space-between"><span style="font-size:13px;color:#4A6274">Time savings value</span><span id="ll-tsv" style="font-size:13px;color:#34B87A;font-weight:600"></span></div></div><div style="background:linear-gradient(135deg,#EAF7FC,#F0FAFF);border:1px solid #1A9FC7;border-radius:14px;padding:20px 24px;text-align:center;box-shadow:0 4px 20px rgba(26,159,199,0.15)"><p style="font-size:12px;color:#8A9DAD;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Total Annual Benefit</p><p id="ll-tot" style="font-size:36px;font-weight:700;color:#1A9FC7;margin:0 0 6px;line-height:1.2"></p><p id="ll-pm" style="font-size:12px;color:#8A9DAD;margin:0"></p></div><div style="background:#fff;border:1px solid #E2EBF0;border-radius:14px;padding:20px 24px;text-align:center"><p style="font-size:12px;color:#8A9DAD;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Return on Investment</p><p id="ll-roi" style="font-size:28px;font-weight:700;color:#1A2B3C;margin:0 0 6px;line-height:1.2"></p><p style="font-size:12px;color:#8A9DAD;margin:0">For every £1 spent on LiveryLive</p></div></div></div></div>';
   calc();
   document.querySelectorAll('[data-id]').forEach(function(el){
     el.addEventListener('input',function(){
       var id=this.getAttribute('data-id'),v=parseInt(this.value);
-      if(id==='h')h=v; if(id==='a')a=v; if(id==='w')w=v; if(id==='m')m=v; if(id==='c')c=v;
+      if(id==="h")h=v; if(id==="a")a=v; if(id==="w")w=v; if(id==="m")m=v; if(id==="c")c=v;
+      var pct=((v-parseInt(this.min))/(parseInt(this.max)-parseInt(this.min))*100);
+      this.style.background="linear-gradient(to right,#1A9FC7 0%,#1A9FC7 "+pct+"%,#E2EBF0 "+pct+"%,#E2EBF0 100%)";
       calc();
     });
   });
 })();
 <\/script>`;
 
-  // Carousel slides using real app screenshots
   const slides = [
-    {
-      label: 'Horses',
-      desc: 'Every horse on the yard in one place — photo, owner, stable number, feed chart, groups. The whole team always knows the full picture.',
-      screenshot: '/app-screenshots/horses.png',
-      color: '#0e9090',
-      icon: '🐴',
-      screenDesc: 'Horses screen — King, Jenny, Stable 1',
-    },
-    {
-      label: 'To Do',
-      desc: 'Daily task lists with date navigation. Staff see exactly what needs doing — Bring in, hay, feeding — no missed jobs.',
-      screenshot: '/app-screenshots/todo.png',
-      color: '#1a7a4a',
-      icon: '✅',
-      screenDesc: 'To Do — Wednesday 18 March',
-    },
-    {
-      label: 'Messages',
-      desc: '"Hi everyone, see your tasks for tomorrow?" — yard-wide communication in one thread. No WhatsApp chaos.',
-      screenshot: '/app-screenshots/messages.png',
-      color: '#2563eb',
-      icon: '💬',
-      screenDesc: 'Messages — Jenny, a few seconds ago',
-    },
-    {
-      label: 'Yard Calendar',
-      desc: 'Every yard event in one view. Pending events, upcoming bookings, staff schedules — all visible at a glance.',
-      screenshot: '/app-screenshots/calendar.png',
-      color: '#7c3aed',
-      icon: '📅',
-      screenDesc: 'Yard Calendar — March 2026',
-    },
+    { label: 'Horses', desc: 'Every horse on the yard in one place — photo, owner, stable number, feed chart. The whole team always has the full picture.', icon: '🐴', color: '#0e9090', screenDesc: 'Horses screen — King, Jenny, Stable 1' },
+    { label: 'To Do', desc: 'Daily task lists with date navigation. Staff see exactly what needs doing — no missed jobs, no confusion.', icon: '✅', color: '#1a7a4a', screenDesc: 'To Do — Wednesday 18 March' },
+    { label: 'Messages', desc: '"Hi everyone, see your tasks for tomorrow?" — yard-wide communication in one thread. No WhatsApp chaos.', icon: '💬', color: '#2563eb', screenDesc: 'Messages — Jenny, a few seconds ago' },
+    { label: 'Yard Calendar', desc: 'Every yard event in one view. Pending events, upcoming bookings, staff schedules — all visible at a glance.', icon: '📅', color: '#7c3aed', screenDesc: 'Yard Calendar — March 2026' },
+  ];
+
+  const additionalContent = [
+    { icon: '📱', title: 'Weekly App Tips', desc: 'Short screen-recorded walkthroughs of one feature per week. Low effort to produce, high value for existing users and trial converts.' },
+    { icon: '🎯', title: 'Feature Highlights', desc: 'Every time something new ships — arena booking, updated profiles, new notifications — it gets its own content moment. New features are news.' },
+    { icon: '📊', title: 'Data-Led Posts', desc: 'Stats from real yard use — hours saved, charges recovered, tasks completed. Turns the product\'s own data into compelling social proof.' },
+    { icon: '🌿', title: 'Seasonal Content', desc: 'Spring turnout, winter feeding, competition season, rug changes. The equestrian calendar is a ready-made content calendar — we just follow it.' },
+    { icon: '💬', title: 'User Stories', desc: 'Written testimonials from the site turned into visual quote cards. High trust content that costs nothing extra to produce.' },
+    { icon: '🎬', title: 'Behind the Scenes', desc: 'Content from the filming days themselves — arriving at a yard, setting up, candid moments. Makes the brand feel human and real.' },
+    { icon: '❓', title: 'Polls & Questions', desc: '"How many of you are still managing your yard on a whiteboard?" Engagement-first content that grows reach and surfaces new leads.' },
+    { icon: '🏆', title: 'Yard Spotlights', desc: 'A dedicated post series profiling yards using Livery Live. Gives users something to share, builds community, grows the brand organically.' },
   ];
 
   if (!mounted) return null;
@@ -160,7 +110,6 @@ export default function LiveryLive() {
     <div className="proposal-wrap">
       <canvas ref={canvasRef} className="bg-canvas" />
 
-      {/* CALENDLY MODAL */}
       {calendlyOpen && (
         <div className="cal-overlay" onClick={e => { if (e.target.classList.contains('cal-overlay')) setCalendlyOpen(false); }}>
           <div className="cal-modal">
@@ -268,9 +217,7 @@ export default function LiveryLive() {
                     </div>
                   ))}
                 </div>
-                <button className="btn-orange" onClick={() => setCalendlyOpen(true)}>
-                  Book a Call — I'll Send Over a Proposed Time
-                </button>
+                <button className="btn-orange" onClick={() => setCalendlyOpen(true)}>Book a Call — I'll Send Over a Proposed Time</button>
               </div>
               <div className="pkg-side">
                 <div className="side-card">
@@ -288,8 +235,26 @@ export default function LiveryLive() {
           </div>
         </section>
 
-        {/* 90 DAYS */}
+        {/* ADDITIONAL CONTENT */}
         <section className="section section-dark">
+          <div className="inner">
+            <div className="eyebrow teal">// ADDITIONAL_CONTENT</div>
+            <h2>The content never stops<br /><span className="hl-teal">between filming days.</span></h2>
+            <p className="lead">The filming day feeds the big pieces — testimonials, hero films, short-form cuts. But there's a whole layer of content that doesn't need a camera crew, and it keeps the channels active every single week.</p>
+            <div className="content-grid">
+              {additionalContent.map((item, i) => (
+                <div key={i} className="content-card">
+                  <div className="content-icon">{item.icon}</div>
+                  <h4>{item.title}</h4>
+                  <p>{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* 90 DAYS */}
+        <section className="section">
           <div className="inner">
             <div className="eyebrow teal">// THE_ROADMAP</div>
             <h2>First <span className="hl-teal">90 days.</span></h2>
@@ -313,11 +278,11 @@ export default function LiveryLive() {
         </section>
 
         {/* CAROUSEL MOCKUP */}
-        <section className="section">
+        <section className="section section-dark">
           <div className="inner">
             <div className="eyebrow teal">// CONTENT_EXAMPLE</div>
             <h2>What the social<br /><span className="hl-teal">content looks like.</span></h2>
-            <p className="lead">Feature spotlight carousels pull directly from real app screens — showing yard owners exactly what they're getting before they sign up. Tap through the slides.</p>
+            <p className="lead">Feature spotlight carousels pull directly from real app screens — showing yard owners exactly what they're getting before they sign up.</p>
             <div className="carousel-demo">
               <div className="phone-frame">
                 <div className="phone-notch" />
@@ -338,20 +303,16 @@ export default function LiveryLive() {
                     <div className="slide-brand">LiveryLive App</div>
                   </div>
                   <div className="dots">
-                    {slides.map((_, i) => (
-                      <div key={i} className={`dot ${i === activeSlide ? 'dot-a' : ''}`} onClick={() => setActiveSlide(i)} />
-                    ))}
+                    {slides.map((_, i) => <div key={i} className={`dot ${i === activeSlide ? 'dot-a' : ''}`} onClick={() => setActiveSlide(i)} />)}
                   </div>
                 </div>
               </div>
               <div className="carousel-info">
                 <div className="eyebrow teal">// REAL_APP_SCREENS</div>
                 <h3>Feature Spotlight Posts</h3>
-                <p>Each slide uses real screenshots from the Livery Live app — horses, tasks, messages, calendar. No mockups, no fake screens. The content shows exactly what yard owners get when they sign up.</p>
+                <p>Each slide uses real screenshots from the Livery Live app — horses, tasks, messages, calendar. No mockups. The content shows exactly what yard owners get when they sign up.</p>
                 <div className="slide-btns">
-                  {slides.map((s, i) => (
-                    <button key={i} className={`slide-btn ${i === activeSlide ? 'slide-btn-a' : ''}`} onClick={() => setActiveSlide(i)}>{s.label}</button>
-                  ))}
+                  {slides.map((s, i) => <button key={i} className={`slide-btn ${i === activeSlide ? 'slide-btn-a' : ''}`} onClick={() => setActiveSlide(i)}>{s.label}</button>)}
                 </div>
                 <p className="disclaimer">Real carousels will be designed using the rebrand visual identity once that's ready.</p>
               </div>
@@ -360,7 +321,7 @@ export default function LiveryLive() {
         </section>
 
         {/* ROI CALCULATOR */}
-        <section className="section section-dark roi-section">
+        <section className="section roi-section">
           <div className="inner">
             <div className="eyebrow teal">// GROWTH_TOOL</div>
             <h2>The ROI<br /><span className="hl-teal">Calculator.</span></h2>
@@ -369,9 +330,9 @@ export default function LiveryLive() {
               <div className="roi-inputs">
                 {[
                   { label: 'Horses on your yard', val: horses, set: setHorses, min: 5, max: 100, step: 5, pre: '', suf: '' },
-                  { label: 'Weekly admin hours', val: adminHours, set: setAdminHours, min: 1, max: 40, step: 1, pre: '', suf: ' hrs' },
-                  { label: 'Hourly admin wage', val: hourlyWage, set: setHourlyWage, min: 8, max: 30, step: 1, pre: '£', suf: '' },
-                  { label: 'Missed charges per month', val: missedCharges, set: setMissedCharges, min: 0, max: 30, step: 1, pre: '', suf: '' },
+                  { label: 'Weekly admin hours', val: adminHours, set: setAdminHours, min: 1, max: 40, step: 1, pre: '', suf: ' hrs', desc: 'Time spent on invoicing, records, feed charts, staff coordination' },
+                  { label: 'Hourly wage for admin', val: hourlyWage, set: setHourlyWage, min: 8, max: 30, step: 1, pre: '£', suf: '', desc: 'Average hourly rate for the person doing the admin work' },
+                  { label: 'Missed charges per month', val: missedCharges, set: setMissedCharges, min: 0, max: 30, step: 1, pre: '', suf: '', desc: 'Extra services, arena bookings, or feed charges that slip through' },
                   { label: 'Average charge value', val: avgCharge, set: setAvgCharge, min: 5, max: 50, step: 5, pre: '£', suf: '' },
                 ].map((f, i) => (
                   <div key={i} className="roi-field">
@@ -379,6 +340,7 @@ export default function LiveryLive() {
                       <span>{f.label}</span>
                       <strong>{f.pre}{f.val}{f.suf}</strong>
                     </div>
+                    {f.desc && <p className="roi-desc">{f.desc}</p>}
                     <input type="range" min={f.min} max={f.max} step={f.step} value={f.val} onChange={e => f.set(Number(e.target.value))} className="roi-slider" />
                   </div>
                 ))}
@@ -388,13 +350,19 @@ export default function LiveryLive() {
                   <div className="roi-glance-label">// YOUR_YARD_AT_A_GLANCE</div>
                   <div className="roi-row"><span>LiveryLive cost</span><span>£{appCost}/yr</span></div>
                   <div className="roi-row"><span>Revenue recovered</span><span className="green">+£{revRecovered}/yr</span></div>
-                  <div className="roi-row"><span>Admin time value</span><span className="green">+£{timeSavingsValue}/yr</span></div>
-                  <div className="roi-row"><span>Admin hrs saved</span><span className="green">{hoursSavedMonthly} hrs/mo</span></div>
+                  <div className="roi-row"><span>Admin hours saved</span><span className="green">{hoursSavedMonthly} hrs/month</span></div>
+                  <div className="roi-row"><span>Admin rate</span><span>£{hourlyWage}/hr</span></div>
+                  <div className="roi-row" style={{borderBottom:'none'}}><span>Time savings value</span><span className="green">+£{timeSavingsValue}/yr</span></div>
                 </div>
                 <div className="roi-total">
                   <div className="roi-total-label">TOTAL ANNUAL BENEFIT</div>
                   <div className="roi-total-num">£{totalAnnualBenefit.toLocaleString()}</div>
-                  <div className="roi-total-sub">ROI: {roi}%</div>
+                  <div className="roi-total-pm">That's £{perMonth.toLocaleString()} per month back in your pocket</div>
+                </div>
+                <div className="roi-roi">
+                  <div className="roi-roi-label">RETURN ON INVESTMENT</div>
+                  <div className="roi-roi-num">{roi}%</div>
+                  <div className="roi-roi-sub">For every £1 spent on LiveryLive</div>
                 </div>
               </div>
             </div>
@@ -414,7 +382,7 @@ export default function LiveryLive() {
         </section>
 
         {/* ADVISORY */}
-        <section className="section">
+        <section className="section section-dark">
           <div className="inner">
             <div className="eyebrow teal">// BUSINESS_ADVISORY</div>
             <h2>Six things worth<br /><span className="hl-teal">looking at.</span></h2>
@@ -440,7 +408,7 @@ export default function LiveryLive() {
         </section>
 
         {/* CREDENTIALS */}
-        <section className="section section-dark">
+        <section className="section">
           <div className="inner creds-inner">
             <div>
               <div className="eyebrow teal">// WHY_LEARNLAB</div>
@@ -478,7 +446,7 @@ export default function LiveryLive() {
         .roi-section * { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='80'%3E🐴%3C/text%3E%3C/svg%3E") 16 16, auto !important; }
         .cal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px); }
         .cal-modal { background: #fff; border-radius: 20px; width: 100%; max-width: 700px; position: relative; overflow: hidden; animation: slideUp 0.3s ease-out; }
-        .cal-close { position: absolute; top: 16px; right: 16px; background: rgba(0,0,0,0.1); border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 14px; cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .cal-close { position: absolute; top: 16px; right: 16px; background: rgba(0,0,0,0.1); border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 14px; cursor: pointer !important; z-index: 10; display: flex; align-items: center; justify-content: center; }
         .cal-close:hover { background: rgba(0,0,0,0.2); }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
@@ -529,6 +497,13 @@ export default function LiveryLive() {
         .fw-label { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 8px; }
         .fw-desc { font-size: 12px; color: rgba(255,255,255,0.45); line-height: 1.5; flex: 1; }
 
+        .content-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+        .content-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.18); border-radius: 18px; padding: 26px 22px; transition: 0.3s; }
+        .content-card:hover { transform: translateY(-4px); border-color: rgba(14,144,144,0.4); background: rgba(14,144,144,0.05); }
+        .content-icon { font-size: 26px; margin-bottom: 12px; }
+        .content-card h4 { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+        .content-card p { color: rgba(255,255,255,0.45); font-size: 13px; line-height: 1.5; margin: 0; }
+
         .pkg-grid { display: grid; grid-template-columns: 1fr 350px; gap: 26px; }
         .pkg-main { background: rgba(255,255,255,0.04); border: 1px solid rgba(249,115,22,0.35); border-radius: 24px; padding: 46px; }
         .pkg-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #f97316; letter-spacing: 0.2em; margin-bottom: 30px; display: block; }
@@ -537,7 +512,7 @@ export default function LiveryLive() {
         .pkg-dot { width: 6px; height: 6px; border-radius: 50%; background: #f97316; flex-shrink: 0; margin-top: 7px; }
         .pkg-item strong { display: block; color: #fff; font-size: 15px; margin-bottom: 4px; }
         .pkg-item span { color: rgba(255,255,255,0.5); font-size: 14px; line-height: 1.5; }
-        .btn-orange { display: block; width: 100%; padding: 16px; background: #f97316; color: #fff; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: 0.06em; font-size: 12px; transition: 0.3s; text-align: center; box-sizing: border-box; }
+        .btn-orange { display: block; width: 100%; padding: 16px; background: #f97316; color: #fff; border: none; border-radius: 12px; font-weight: 800; cursor: pointer !important; text-transform: uppercase; letter-spacing: 0.06em; font-size: 12px; transition: 0.3s; text-align: center; box-sizing: border-box; }
         .btn-orange:hover { box-shadow: 0 0 28px rgba(249,115,22,0.5); transform: scale(1.02); }
         .pkg-side { display: flex; flex-direction: column; gap: 16px; }
         .side-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.2); border-radius: 18px; padding: 24px; }
@@ -559,9 +534,9 @@ export default function LiveryLive() {
         .slide-icon { font-size: 24px; margin-bottom: 6px; }
         .slide-tag { font-family: 'JetBrains Mono', monospace; font-size: 7px; letter-spacing: 0.1em; margin-bottom: 4px; }
         .slide-title { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 4px; }
-        .slide-screen-desc { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: rgba(255,255,255,0.3); margin-bottom: 6px; letter-spacing: 0.05em; }
+        .slide-screen-desc { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: rgba(255,255,255,0.3); margin-bottom: 6px; }
         .slide-desc { font-size: 10px; color: rgba(255,255,255,0.5); line-height: 1.4; flex: 1; }
-        .slide-brand { font-family: 'JetBrains Mono', monospace; font-size: 7px; color: rgba(255,255,255,0.2); margin-top: 8px; letter-spacing: 0.1em; }
+        .slide-brand { font-family: 'JetBrains Mono', monospace; font-size: 7px; color: rgba(255,255,255,0.2); margin-top: 8px; }
         .dots { display: flex; gap: 5px; justify-content: center; padding: 8px 0 4px; }
         .dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.2); cursor: pointer; transition: 0.2s; }
         .dot-a { background: #0e9090; width: 14px; border-radius: 3px; }
@@ -569,29 +544,35 @@ export default function LiveryLive() {
         .slide-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
         .slide-btn { padding: 7px 15px; background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.25); color: rgba(255,255,255,0.4); border-radius: 8px; font-size: 13px; cursor: pointer; transition: 0.2s; font-family: inherit; }
         .slide-btn:hover, .slide-btn-a { border-color: #0e9090; color: #0e9090; }
-        .disclaimer { font-family: 'JetBrains Mono', monospace; font-size: 11px !important; color: rgba(255,255,255,0.18) !important; letter-spacing: 0.05em; }
+        .disclaimer { font-family: 'JetBrains Mono', monospace; font-size: 11px !important; color: rgba(255,255,255,0.18) !important; }
 
         .roi-widget { display: grid; grid-template-columns: 1fr 310px; gap: 28px; background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.2); border-radius: 24px; padding: 42px; margin-bottom: 32px; }
         .roi-field { margin-bottom: 24px; }
-        .roi-fh { display: flex; justify-content: space-between; margin-bottom: 10px; }
-        .roi-fh span { color: rgba(255,255,255,0.5); font-size: 14px; }
-        .roi-fh strong { color: #fff; font-size: 14px; }
-        .roi-slider { width: 100%; accent-color: #0e9090; }
-        .roi-glance { margin-bottom: 18px; }
+        .roi-fh { display: flex; justify-content: space-between; margin-bottom: 6px; }
+        .roi-fh span { color: rgba(255,255,255,0.5); font-size: 14px; font-weight: 500; }
+        .roi-fh strong { color: #fff; font-size: 20px; font-weight: 700; }
+        .roi-desc { color: rgba(255,255,255,0.3); font-size: 12px; margin: 0 0 8px; line-height: 1.4; }
+        .roi-slider { width: 100%; height: 6px; -webkit-appearance: none; appearance: none; accent-color: #0e9090; border-radius: 3px; outline: none; }
+        .roi-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #0e9090; cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='80'%3E🐴%3C/text%3E%3C/svg%3E") 16 16, pointer !important; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(14,144,144,0.4); }
+        .roi-glance { margin-bottom: 16px; }
         .roi-glance-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.28); letter-spacing: 0.15em; margin-bottom: 14px; }
-        .roi-row { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 14px; }
+        .roi-row { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 13px; }
         .roi-row span:first-child { color: rgba(255,255,255,0.45); }
         .roi-row span:last-child { color: #fff; font-weight: 600; }
         .green { color: #34d399 !important; }
-        .roi-total { background: #0e9090; border-radius: 16px; padding: 24px; text-align: center; }
-        .roi-total-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.15em; color: rgba(255,255,255,0.6); margin-bottom: 10px; }
-        .roi-total-num { font-size: 44px; font-weight: 800; color: #fff; line-height: 1; margin-bottom: 8px; }
-        .roi-total-sub { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(255,255,255,0.65); }
+        .roi-total { background: linear-gradient(135deg, rgba(14,144,144,0.15), rgba(14,144,144,0.08)); border: 1px solid rgba(14,144,144,0.4); border-radius: 16px; padding: 24px; text-align: center; margin-bottom: 12px; }
+        .roi-total-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.15em; color: rgba(255,255,255,0.5); margin-bottom: 10px; }
+        .roi-total-num { font-size: 44px; font-weight: 800; color: #0e9090; line-height: 1; margin-bottom: 8px; }
+        .roi-total-pm { font-size: 12px; color: rgba(255,255,255,0.4); line-height: 1.4; }
+        .roi-roi { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px 24px; text-align: center; }
+        .roi-roi-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.15em; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
+        .roi-roi-num { font-size: 32px; font-weight: 700; color: #fff; line-height: 1; margin-bottom: 6px; }
+        .roi-roi-sub { font-size: 12px; color: rgba(255,255,255,0.3); }
 
         .embed-box { background: rgba(0,0,0,0.3); border: 1px solid rgba(14,144,144,0.18); border-radius: 18px; overflow: hidden; }
         .embed-head { display: flex; justify-content: space-between; align-items: flex-start; padding: 26px 30px 18px; border-bottom: 1px solid rgba(255,255,255,0.05); gap: 20px; }
         .embed-head p { color: rgba(255,255,255,0.4); font-size: 14px; line-height: 1.5; margin: 10px 0 0; }
-        .copy-btn { padding: 8px 18px; background: #0e9090; color: #fff; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; transition: 0.2s; letter-spacing: 0.05em; white-space: nowrap; flex-shrink: 0; }
+        .copy-btn { padding: 8px 18px; background: #0e9090; color: #fff; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer !important; transition: 0.2s; letter-spacing: 0.05em; white-space: nowrap; flex-shrink: 0; }
         .copy-btn:hover { box-shadow: 0 0 14px rgba(14,144,144,0.5); }
         .code-pre { margin: 0; padding: 22px 30px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: rgba(14,144,144,0.65); line-height: 1.6; white-space: pre-wrap; word-break: break-all; overflow-x: auto; }
 
@@ -612,25 +593,21 @@ export default function LiveryLive() {
         .cta-inner { max-width: 580px; margin: 0 auto; }
         .cta-inner h2 { font-size: 50px; }
         .cta-inner p { color: rgba(255,255,255,0.5); font-size: 16px; line-height: 1.7; margin-bottom: 38px; }
-        .btn-orange-lg { display: inline-block; padding: 20px 52px; background: #f97316; color: #fff; border: none; border-radius: 14px; font-weight: 800; text-decoration: none; text-transform: uppercase; letter-spacing: 0.08em; font-size: 15px; transition: 0.3s; cursor: pointer; }
+        .btn-orange-lg { display: inline-block; padding: 20px 52px; background: #f97316; color: #fff; border: none; border-radius: 14px; font-weight: 800; text-decoration: none; text-transform: uppercase; letter-spacing: 0.08em; font-size: 15px; transition: 0.3s; cursor: pointer !important; }
         .btn-orange-lg:hover { box-shadow: 0 0 32px rgba(249,115,22,0.55); transform: scale(1.03); }
 
         .footer-note { text-align: center; padding: 34px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.1); letter-spacing: 0.1em; border-top: 1px solid rgba(14,144,144,0.1); }
 
         @media (max-width: 900px) {
-          h1 { font-size: 50px; }
-          h2 { font-size: 32px; }
-          .three-grid { grid-template-columns: 1fr; }
+          h1 { font-size: 50px; } h2 { font-size: 32px; }
+          .three-grid, .content-grid { grid-template-columns: 1fr; }
           .flywheel { flex-direction: column; }
           .fw-arrow { transform: rotate(90deg); align-self: center; padding: 8px 0; }
-          .pkg-grid { grid-template-columns: 1fr; }
-          .carousel-demo { grid-template-columns: 1fr; }
-          .roi-widget { grid-template-columns: 1fr; }
-          .adv-grid { grid-template-columns: 1fr; }
-          .creds-inner { grid-template-columns: 1fr; }
+          .pkg-grid, .carousel-demo, .roi-widget, .adv-grid, .creds-inner { grid-template-columns: 1fr; }
           .section { padding: 60px 24px; }
           .hero { padding: 80px 24px 60px; }
           .cta-inner h2 { font-size: 36px; }
+          .content-grid { grid-template-columns: repeat(2, 1fr); }
         }
       `}</style>
     </div>
