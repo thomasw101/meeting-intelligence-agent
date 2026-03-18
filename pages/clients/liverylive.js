@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/router';
 
 export default function LiveryLive() {
   const [mounted, setMounted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
   const [calendlyOpen, setCalendlyOpen] = useState(false);
-  const [navVisible, setNavVisible] = useState(false);
   const canvasRef = useRef(null);
+  const router = useRouter();
 
   const [horses, setHorses] = useState(20);
   const [adminHours, setAdminHours] = useState(10);
@@ -37,7 +38,6 @@ export default function LiveryLive() {
       mouse.x = e.clientX;
       mouse.y = e.clientY + window.scrollY;
     };
-    const handleScroll = () => setNavVisible(window.scrollY > 300);
 
     const pageH = canvas.height;
     const pageW = canvas.width;
@@ -83,13 +83,11 @@ export default function LiveryLive() {
     };
 
     window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('scroll', handleScroll);
     window.addEventListener('resize', resizeCanvas);
     animate();
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', resizeCanvas);
       cancelAnimationFrame(animFrameId);
     };
@@ -177,26 +175,26 @@ export default function LiveryLive() {
     { icon: '🏆', title: 'Yard Spotlights', desc: 'A post series profiling yards using Livery Live. Gives users something to share and grows the brand organically.' },
   ];
 
-  const navItems = [
-    { label: 'The Proposal', id: 'sec-proposal' },
-    { label: 'The Package', id: 'sec-package' },
-    { label: 'ROI Tool', id: 'sec-roi' },
-    { label: 'Advisory', id: 'sec-advisory' },
-    { label: 'Book a Call', id: null, cta: true },
-  ];
-
   if (!mounted) return null;
 
   return (
     <div className="proposal-wrap">
       <canvas ref={canvasRef} className="bg-canvas" />
 
-      <div className={`jump-nav ${navVisible ? 'jump-nav-visible' : ''}`}>
-        {navItems.map((item, i) => (
-          <button key={i} className={`jump-item ${item.cta ? 'jump-cta' : ''}`} onClick={() => item.cta ? setCalendlyOpen(true) : scrollTo(item.id)}>
-            {item.label}
-          </button>
-        ))}
+      {/* NAV — always visible, no scroll trigger */}
+      <div className="top-nav">
+        <button className="back-btn" onClick={() => router.push('/')}>← Back</button>
+        <div className="nav-pills">
+          {[
+            { label: 'The Proposal', id: 'sec-proposal' },
+            { label: 'The Package', id: 'sec-package' },
+            { label: 'ROI Tool', id: 'sec-roi' },
+            { label: 'Advisory', id: 'sec-advisory' },
+          ].map((item, i) => (
+            <button key={i} className="jump-item" onClick={() => scrollTo(item.id)}>{item.label}</button>
+          ))}
+          <button className="jump-cta" onClick={() => setCalendlyOpen(true)}>Book a Call</button>
+        </div>
       </div>
 
       {calendlyOpen && (
@@ -494,7 +492,7 @@ export default function LiveryLive() {
           </div>
         </section>
 
-        <section id="sec-cta" className="section cta-section">
+        <section className="section cta-section">
           <div className="cta-inner">
             <div className="eyebrow teal">// NEXT_STEPS</div>
             <h2>Ready when<br /><span className="hl-orange">you are.</span></h2>
@@ -520,14 +518,75 @@ export default function LiveryLive() {
       <style jsx>{`
         .proposal-wrap { position: relative; min-height: 100vh; background: linear-gradient(160deg, #0a1628 0%, #0d1f35 40%, #0a1e1e 100%); }
         .bg-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
-        .proposal { position: relative; z-index: 1; overflow-x: hidden; }
+        .proposal { position: relative; z-index: 1; overflow-x: hidden; padding-top: 80px; }
 
-        .jump-nav { position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-80px); z-index: 200; display: flex; align-items: center; gap: 4px; background: rgba(10,22,40,0.9); backdrop-filter: blur(20px); border: 1px solid rgba(14,144,144,0.25); border-radius: 999px; padding: 6px 8px; transition: transform 0.4s cubic-bezier(0.22,1,0.36,1), opacity 0.4s ease; opacity: 0; pointer-events: none; }
-        .jump-nav-visible { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: all; }
-        .jump-item { padding: 8px 16px; background: transparent; border: none; color: rgba(255,255,255,0.45); font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; border-radius: 999px; transition: all 0.2s; white-space: nowrap; }
+        /* TOP NAV — always visible */
+        .top-nav {
+          position: fixed;
+          top: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 200;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .back-btn {
+          padding: 9px 16px;
+          background: rgba(10,22,40,0.9);
+          backdrop-filter: blur(20px);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 999px;
+          color: rgba(255,255,255,0.5);
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 10px;
+          letter-spacing: 0.1em;
+          cursor: pointer;
+          transition: all 0.2s;
+          white-space: nowrap;
+        }
+        .back-btn:hover { color: #0e9090; border-color: rgba(14,144,144,0.4); background: rgba(14,144,144,0.1); }
+        .nav-pills {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          background: rgba(10,22,40,0.9);
+          backdrop-filter: blur(20px);
+          border: 1px solid rgba(14,144,144,0.25);
+          border-radius: 999px;
+          padding: 6px 8px;
+        }
+        .jump-item {
+          padding: 8px 14px;
+          background: transparent;
+          border: none;
+          color: rgba(255,255,255,0.45);
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 10px;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          cursor: pointer;
+          border-radius: 999px;
+          transition: all 0.2s;
+          white-space: nowrap;
+        }
         .jump-item:hover { color: #0e9090; background: rgba(14,144,144,0.1); }
-        .jump-cta { background: #f97316 !important; color: #fff !important; font-weight: 700; }
-        .jump-cta:hover { box-shadow: 0 0 16px rgba(249,115,22,0.5); background: #ea6c10 !important; }
+        .jump-cta {
+          padding: 8px 16px;
+          background: #f97316;
+          border: none;
+          color: #fff;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 10px;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          font-weight: 700;
+          cursor: pointer;
+          border-radius: 999px;
+          transition: all 0.2s;
+          white-space: nowrap;
+        }
+        .jump-cta:hover { box-shadow: 0 0 16px rgba(249,115,22,0.5); background: #ea6c10; }
 
         .eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.2em; margin-bottom: 16px; display: block; text-transform: uppercase; }
         .teal { color: #0e9090; }
@@ -541,7 +600,7 @@ export default function LiveryLive() {
         .section { padding: 100px 48px; }
         .section-dark { background: rgba(0,0,0,0.25); border-top: 1px solid rgba(14,144,144,0.12); border-bottom: 1px solid rgba(14,144,144,0.12); }
         .inner { max-width: 1100px; margin: 0 auto; }
-        .hero { padding: 130px 48px 100px; animation: fadeUp 0.8s ease-out; }
+        .hero { padding: 80px 48px 100px; animation: fadeUp 0.8s ease-out; }
         h1 { font-size: 80px; font-weight: 800; color: #fff; line-height: 1.0; margin-bottom: 24px; }
         .hero-sub { color: rgba(255,255,255,0.55); font-size: 20px; line-height: 1.6; max-width: 580px; margin-bottom: 36px; }
         .hero-tags { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -681,15 +740,16 @@ export default function LiveryLive() {
 
         @media (max-width: 900px) {
           h1 { font-size: 50px; } h2 { font-size: 32px; }
+          .top-nav { display: none; }
+          .proposal { padding-top: 24px; }
           .three-grid { grid-template-columns: 1fr; }
           .flywheel { flex-direction: column; }
           .fw-arrow { transform: rotate(90deg); align-self: center; padding: 8px 0; }
           .pkg-grid, .carousel-demo, .roi-widget, .adv-grid, .creds-inner { grid-template-columns: 1fr; }
           .content-grid { grid-template-columns: repeat(2, 1fr); }
           .section { padding: 60px 24px; }
-          .hero { padding: 80px 24px 60px; }
+          .hero { padding: 60px 24px 80px; }
           .cta-inner h2 { font-size: 36px; }
-          .jump-nav { display: none; }
         }
       `}</style>
     </div>
