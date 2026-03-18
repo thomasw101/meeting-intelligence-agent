@@ -24,7 +24,6 @@ export default function LiveryLive() {
     let animFrameId;
     const particles = [];
 
-    // Size canvas to full page height, not viewport
     const resizeCanvas = () => {
       const wrapper = canvas.parentElement;
       canvas.width = wrapper ? wrapper.offsetWidth : window.innerWidth;
@@ -33,18 +32,13 @@ export default function LiveryLive() {
 
     resizeCanvas();
 
-    // Mouse position relative to page (not viewport)
     let mouse = { x: null, y: null };
     const handleMouseMove = (e) => {
       mouse.x = e.clientX;
       mouse.y = e.clientY + window.scrollY;
     };
+    const handleScroll = () => setNavVisible(window.scrollY > 300);
 
-    const handleScroll = () => {
-      setNavVisible(window.scrollY > 300);
-    };
-
-    // Distribute particles across full page height
     const pageH = canvas.height;
     const pageW = canvas.width;
     for (let i = 0; i < 180; i++) {
@@ -53,24 +47,20 @@ export default function LiveryLive() {
         y: Math.random() * pageH,
         vx: (Math.random() - 0.5) * 0.25,
         vy: (Math.random() - 0.5) * 0.25,
-        size: Math.random() * 1.8 + 0.4,
+        size: Math.random() * 1.8 + 0.5,
         color: Math.random() > 0.85 ? '#FF6B35' : (Math.random() > 0.5 ? '#0e9090' : '#ffffff'),
-        opacity: Math.random() * 0.18 + 0.05, // reduced opacity
+        opacity: Math.random() * 0.3 + 0.12,
       });
     }
 
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const scrollY = window.scrollY;
-
       particles.forEach(p => {
         p.x += p.vx;
         p.y += p.vy;
-
-        // Mouse repulsion — offset by scroll position
         if (mouse.x != null) {
           const dx = p.x - mouse.x;
-          const dy = p.y - (mouse.y);
+          const dy = p.y - mouse.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < 120) {
             const force = (120 - dist) / 120;
@@ -78,20 +68,16 @@ export default function LiveryLive() {
             p.y += (dy / dist) * force * 3;
           }
         }
-
-        // Wrap edges
         if (p.x < 0) p.x = canvas.width;
         if (p.x > canvas.width) p.x = 0;
         if (p.y < 0) p.y = canvas.height;
         if (p.y > canvas.height) p.y = 0;
-
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
         ctx.globalAlpha = p.opacity;
         ctx.fill();
       });
-
       ctx.globalAlpha = 1;
       animFrameId = requestAnimationFrame(animate);
     };
@@ -183,7 +169,7 @@ export default function LiveryLive() {
   const additionalContent = [
     { icon: '📱', title: 'Weekly App Tips', desc: 'Short screen-recorded walkthroughs of one feature per week. Low effort to produce, high value for trial converts.' },
     { icon: '🎯', title: 'Feature Highlights', desc: 'Every time something new ships — arena booking, updated profiles — it gets its own content moment.' },
-    { icon: '📊', title: 'Data-Led Posts', desc: 'Stats from real yard use — hours saved, charges recovered. Turns the product\'s own data into social proof.' },
+    { icon: '📊', title: 'Data-Led Posts', desc: "Stats from real yard use — hours saved, charges recovered. Turns the product's own data into social proof." },
     { icon: '🌿', title: 'Seasonal Content', desc: 'Spring turnout, winter feeding, competition season. The equestrian calendar is a ready-made content calendar.' },
     { icon: '💬', title: 'User Stories', desc: 'Written testimonials turned into visual quote cards. High trust content that costs nothing extra to produce.' },
     { icon: '🎬', title: 'Behind the Scenes', desc: 'Content from the filming days — arriving at a yard, setting up, candid moments. Makes the brand feel human.' },
@@ -203,17 +189,11 @@ export default function LiveryLive() {
 
   return (
     <div className="proposal-wrap">
-      {/* Canvas is INSIDE the wrapper — position absolute, scrolls with page */}
       <canvas ref={canvasRef} className="bg-canvas" />
 
-      {/* JUMP NAV */}
       <div className={`jump-nav ${navVisible ? 'jump-nav-visible' : ''}`}>
         {navItems.map((item, i) => (
-          <button
-            key={i}
-            className={`jump-item ${item.cta ? 'jump-cta' : ''}`}
-            onClick={() => item.cta ? setCalendlyOpen(true) : scrollTo(item.id)}
-          >
+          <button key={i} className={`jump-item ${item.cta ? 'jump-cta' : ''}`} onClick={() => item.cta ? setCalendlyOpen(true) : scrollTo(item.id)}>
             {item.label}
           </button>
         ))}
@@ -230,7 +210,6 @@ export default function LiveryLive() {
 
       <div className="proposal">
 
-        {/* HERO */}
         <section id="sec-proposal" className="hero">
           <div className="inner">
             <div className="eyebrow teal">// PREPARED_EXCLUSIVELY_FOR · MARCH 2026</div>
@@ -244,7 +223,6 @@ export default function LiveryLive() {
           </div>
         </section>
 
-        {/* SITUATION */}
         <section className="section">
           <div className="inner">
             <div className="eyebrow teal">// THE_SITUATION</div>
@@ -258,7 +236,6 @@ export default function LiveryLive() {
           </div>
         </section>
 
-        {/* FLYWHEEL */}
         <section className="section section-dark">
           <div className="inner">
             <div className="eyebrow teal">// THE_STRATEGY</div>
@@ -285,7 +262,6 @@ export default function LiveryLive() {
           </div>
         </section>
 
-        {/* PACKAGE */}
         <section id="sec-package" className="section">
           <div className="inner">
             <div className="eyebrow teal">// THE_PACKAGE</div>
@@ -321,7 +297,6 @@ export default function LiveryLive() {
                     {['Yard owner testimonials','Founder and team interviews','The app being used on real phones','Cinematic b-roll of yard life','Feature walkthroughs and demos','Seasonal content and timely hooks','Problem-led narrative pieces'].map((item, i) => <li key={i}>{item}</li>)}
                   </ul>
                 </div>
-
                 <div className="side-card side-orange hoverable">
                   <div className="eyebrow orange" style={{marginBottom:'10px'}}>// LOGISTICS_&_INSURANCE</div>
                   <ul className="film-list">
@@ -336,10 +311,9 @@ export default function LiveryLive() {
                     ].map((item, i) => <li key={i}>{item}</li>)}
                   </ul>
                 </div>
+              </div>
+            </div>
 
- 
-
-            {/* ADDITIONAL CONTENT */}
             <div className="additional-content">
               <div className="additional-divider">
                 <div className="additional-divider-line" />
@@ -360,7 +334,6 @@ export default function LiveryLive() {
           </div>
         </section>
 
-        {/* 90 DAYS */}
         <section className="section section-dark">
           <div className="inner">
             <div className="eyebrow teal">// THE_ROADMAP</div>
@@ -382,7 +355,6 @@ export default function LiveryLive() {
           </div>
         </section>
 
-        {/* CAROUSEL */}
         <section className="section">
           <div className="inner">
             <div className="eyebrow teal">// CONTENT_EXAMPLE</div>
@@ -422,7 +394,6 @@ export default function LiveryLive() {
           </div>
         </section>
 
-        {/* ROI */}
         <section id="sec-roi" className="section section-dark roi-section">
           <div className="inner">
             <div className="eyebrow teal">// GROWTH_TOOL</div>
@@ -438,16 +409,9 @@ export default function LiveryLive() {
                   { label: 'Average charge value', val: avgCharge, set: setAvgCharge, min: 5, max: 50, step: 5, pre: '£', suf: '', desc: '' },
                 ].map((f, i) => (
                   <div key={i} className="roi-field">
-                    <div className="roi-fh">
-                      <span>{f.label}</span>
-                      <strong>{f.pre}{f.val}{f.suf}</strong>
-                    </div>
+                    <div className="roi-fh"><span>{f.label}</span><strong>{f.pre}{f.val}{f.suf}</strong></div>
                     {f.desc && <p className="roi-desc">{f.desc}</p>}
-                    <input type="range" min={f.min} max={f.max} step={f.step} value={f.val}
-                      onChange={e => f.set(Number(e.target.value))}
-                      className="roi-slider"
-                      style={{ background: sliderBg(f.val, f.min, f.max) }}
-                    />
+                    <input type="range" min={f.min} max={f.max} step={f.step} value={f.val} onChange={e => f.set(Number(e.target.value))} className="roi-slider" style={{ background: sliderBg(f.val, f.min, f.max) }} />
                   </div>
                 ))}
               </div>
@@ -487,7 +451,6 @@ export default function LiveryLive() {
           </div>
         </section>
 
-        {/* ADVISORY */}
         <section id="sec-advisory" className="section">
           <div className="inner">
             <div className="eyebrow teal">// BUSINESS_ADVISORY</div>
@@ -513,7 +476,6 @@ export default function LiveryLive() {
           </div>
         </section>
 
-        {/* CREDENTIALS */}
         <section className="section section-dark">
           <div className="inner creds-inner">
             <div>
@@ -532,7 +494,6 @@ export default function LiveryLive() {
           </div>
         </section>
 
-        {/* CTA */}
         <section id="sec-cta" className="section cta-section">
           <div className="cta-inner">
             <div className="eyebrow teal">// NEXT_STEPS</div>
@@ -557,60 +518,13 @@ export default function LiveryLive() {
       `}</style>
 
       <style jsx>{`
-        /* Canvas now position:absolute so it scrolls WITH the page */
-        .proposal-wrap {
-          position: relative;
-          min-height: 100vh;
-          background: linear-gradient(160deg, #0a1628 0%, #0d1f35 40%, #0a1e1e 100%);
-        }
-        .bg-canvas {
-          position: absolute;
-          top: 0; left: 0;
-          width: 100%;
-          height: 100%;
-          pointer-events: none;
-          z-index: 0;
-        }
+        .proposal-wrap { position: relative; min-height: 100vh; background: linear-gradient(160deg, #0a1628 0%, #0d1f35 40%, #0a1e1e 100%); }
+        .bg-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
         .proposal { position: relative; z-index: 1; overflow-x: hidden; }
 
-        /* JUMP NAV */
-        .jump-nav {
-          position: fixed;
-          top: 24px;
-          left: 50%;
-          transform: translateX(-50%) translateY(-80px);
-          z-index: 200;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          background: rgba(10,22,40,0.9);
-          backdrop-filter: blur(20px);
-          border: 1px solid rgba(14,144,144,0.25);
-          border-radius: 999px;
-          padding: 6px 8px;
-          transition: transform 0.4s cubic-bezier(0.22,1,0.36,1), opacity 0.4s ease;
-          opacity: 0;
-          pointer-events: none;
-        }
-        .jump-nav-visible {
-          transform: translateX(-50%) translateY(0);
-          opacity: 1;
-          pointer-events: all;
-        }
-        .jump-item {
-          padding: 8px 16px;
-          background: transparent;
-          border: none;
-          color: rgba(255,255,255,0.45);
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 10px;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          cursor: pointer;
-          border-radius: 999px;
-          transition: all 0.2s;
-          white-space: nowrap;
-        }
+        .jump-nav { position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-80px); z-index: 200; display: flex; align-items: center; gap: 4px; background: rgba(10,22,40,0.9); backdrop-filter: blur(20px); border: 1px solid rgba(14,144,144,0.25); border-radius: 999px; padding: 6px 8px; transition: transform 0.4s cubic-bezier(0.22,1,0.36,1), opacity 0.4s ease; opacity: 0; pointer-events: none; }
+        .jump-nav-visible { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: all; }
+        .jump-item { padding: 8px 16px; background: transparent; border: none; color: rgba(255,255,255,0.45); font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; border-radius: 999px; transition: all 0.2s; white-space: nowrap; }
         .jump-item:hover { color: #0e9090; background: rgba(14,144,144,0.1); }
         .jump-cta { background: #f97316 !important; color: #fff !important; font-weight: 700; }
         .jump-cta:hover { box-shadow: 0 0 16px rgba(249,115,22,0.5); background: #ea6c10 !important; }
@@ -665,15 +579,11 @@ export default function LiveryLive() {
         .pkg-item span { color: rgba(255,255,255,0.5); font-size: 14px; line-height: 1.5; }
         .btn-orange { display: block; width: 100%; padding: 16px; background: #f97316; color: #fff; border: none; border-radius: 12px; font-weight: 800; cursor: pointer !important; text-transform: uppercase; letter-spacing: 0.06em; font-size: 12px; transition: 0.3s; text-align: center; box-sizing: border-box; }
         .btn-orange:hover { box-shadow: 0 0 28px rgba(249,115,22,0.5); transform: scale(1.02); }
-
         .pkg-side { display: flex; flex-direction: column; gap: 16px; }
         .side-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.2); border-radius: 18px; padding: 24px; transition: 0.4s cubic-bezier(0.22,1,0.36,1); }
         .hoverable:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.3); }
-        .side-card p { color: rgba(255,255,255,0.5); font-size: 14px; line-height: 1.6; margin: 0; }
         .side-orange { border-color: rgba(249,115,22,0.25); background: rgba(249,115,22,0.03); }
         .side-orange.hoverable:hover { border-color: rgba(249,115,22,0.5); }
-        .side-teal { border-color: rgba(14,144,144,0.3); background: rgba(14,144,144,0.03); }
-        .side-teal.hoverable:hover { border-color: rgba(14,144,144,0.55); background: rgba(14,144,144,0.07); }
         .film-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 9px; }
         .film-list li { color: rgba(255,255,255,0.5); font-size: 13px; padding-left: 14px; position: relative; line-height: 1.5; }
         .film-list li::before { content: '·'; color: #0e9090; position: absolute; left: 0; font-size: 16px; line-height: 1.2; }
@@ -740,7 +650,6 @@ export default function LiveryLive() {
         .roi-roi-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.15em; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
         .roi-roi-num { font-size: 32px; font-weight: 700; color: #fff; line-height: 1; margin-bottom: 6px; }
         .roi-roi-sub { font-size: 12px; color: rgba(255,255,255,0.3); }
-
         .embed-box { background: rgba(0,0,0,0.3); border: 1px solid rgba(14,144,144,0.18); border-radius: 18px; overflow: hidden; }
         .embed-head { display: flex; justify-content: space-between; align-items: flex-start; padding: 26px 30px 18px; border-bottom: 1px solid rgba(255,255,255,0.05); gap: 20px; }
         .embed-head p { color: rgba(255,255,255,0.4); font-size: 14px; line-height: 1.5; margin: 10px 0 0; }
@@ -768,7 +677,6 @@ export default function LiveryLive() {
         .cta-inner p { color: rgba(255,255,255,0.5); font-size: 16px; line-height: 1.7; margin-bottom: 38px; }
         .btn-orange-lg { display: inline-block; padding: 20px 52px; background: #f97316; color: #fff; border: none; border-radius: 14px; font-weight: 800; text-decoration: none; text-transform: uppercase; letter-spacing: 0.08em; font-size: 15px; transition: 0.3s; cursor: pointer !important; }
         .btn-orange-lg:hover { box-shadow: 0 0 32px rgba(249,115,22,0.55); transform: scale(1.03); }
-
         .footer-note { text-align: center; padding: 34px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.1); letter-spacing: 0.1em; border-top: 1px solid rgba(14,144,144,0.1); }
 
         @media (max-width: 900px) {
