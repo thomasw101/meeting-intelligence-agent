@@ -85,14 +85,15 @@ export default function ThrivingWithAddiction() {
         entries.forEach(entry => {
           if (entry.isIntersecting) {
             entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
           }
         });
       },
-      { threshold: 0.15 }
+      { threshold: 0.08, rootMargin: '0px 0px -30px 0px' }
     );
     document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
     return () => observer.disconnect();
-  }, [mounted]);
+  }, [mounted, clips, expandedClip, expandedDeliverable, expandedReason]);
 
   const parseFileContent = (text, name) => {
     if (name.endsWith('.csv')) {
@@ -426,12 +427,13 @@ export default function ThrivingWithAddiction() {
         body { margin: 0; background: #F7F4EF; }
         .fade-up {
           opacity: 0;
-          transform: translateY(22px);
-          transition: opacity 0.6s ease, transform 0.6s ease;
+          transform: translateY(18px);
+          transition: opacity 0.55s ease, transform 0.55s ease;
+          will-change: opacity, transform;
         }
         .fade-up.visible {
-          opacity: 1;
-          transform: translateY(0);
+          opacity: 1 !important;
+          transform: translateY(0) !important;
         }
       `}</style>
 
