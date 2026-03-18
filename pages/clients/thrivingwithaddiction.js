@@ -34,12 +34,6 @@ export default function ThrivingWithAddiction() {
 
     resizeCanvas();
 
-    let mouse = { x: null, y: null };
-    const handleMouseMove = (e) => {
-      mouse.x = e.clientX;
-      mouse.y = e.clientY + window.scrollY;
-    };
-
     const pageH = canvas.height;
     const pageW = canvas.width;
 
@@ -75,15 +69,29 @@ export default function ThrivingWithAddiction() {
       animFrameId = requestAnimationFrame(animate);
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('resize', resizeCanvas);
     animate();
 
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('resize', resizeCanvas);
       cancelAnimationFrame(animFrameId);
     };
+  }, [mounted]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+    document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+    return () => observer.disconnect();
   }, [mounted]);
 
   const parseFileContent = (text, name) => {
@@ -153,64 +161,20 @@ export default function ThrivingWithAddiction() {
   if (!mounted) return null;
 
   const deliverables = [
-    {
-      title: 'Clip Schedule Per Episode',
-      summary: '4 to 6 short-form clips per episode, timestamped and ready to post.',
-      detail: 'Every episode gets a full clip schedule — the strongest emotional moments identified, cut to the right length for each platform, with a hook caption and title written and ready. You or anyone on your team can execute it without having to think about what to cut.',
-    },
-    {
-      title: 'Guest Authority Trailers',
-      summary: '60 to 90 second highlight reel for each guest before the episode drops.',
-      detail: 'Before the episode goes live, we put out a trailer built around the guest\'s world. UFC career highlights for Jared Gordon. ESPN clips and career moments for Lauren Sisler. It hooks your audience before they\'ve heard a word of the conversation — and gets in front of the guest\'s existing fanbase.',
-    },
-    {
-      title: 'Platform-Native Edits',
-      summary: 'Every clip formatted specifically for Instagram, YouTube Shorts and TikTok.',
-      detail: 'Not the same file repurposed across platforms. Each clip is edited for the platform it\'s going on — aspect ratio, pacing, captions, hook timing. What works on Reels doesn\'t always work on TikTok. We treat them differently.',
-    },
-    {
-      title: 'Caption and Title Writing',
-      summary: 'Hook-led captions and titles written for every clip.',
-      detail: 'The caption is often what determines whether someone watches or scrolls. Every clip comes with a caption written to stop the scroll — leading with the most compelling line from the moment, not a description of what\'s in the video.',
-    },
-    {
-      title: 'Consistent Posting Schedule',
-      summary: 'Content going out every week across all platforms.',
-      detail: 'The algorithm rewards consistency above almost everything else. We build a posting schedule and stick to it — content going out multiple times a week without you having to think about it or remember to do it.',
-    },
-    {
-      title: 'Monthly Strategy Review',
-      summary: 'Monthly review of what performed and what to double down on.',
-      detail: 'Every month we look at the numbers — what got watched, what got shared, what drove listeners to the full episode. We adjust the approach based on what\'s actually working rather than assumptions.',
-    },
-    {
-      title: 'Book Promotion Integration',
-      summary: 'Every piece of content ties back to Thriving with Addiction.',
-      detail: 'The podcast and the book are the same machine. Every clip drives someone to the full episode, and every full episode is an opportunity to drive them to the book. We build that thread into everything we produce.',
-    },
+    { title: 'Clip Schedule Per Episode', summary: '4 to 6 short-form clips per episode, timestamped and ready to post.', detail: 'Every episode gets a full clip schedule — the strongest emotional moments identified, cut to the right length for each platform, with a hook caption and title written and ready. You or anyone on your team can execute it without having to think about what to cut.' },
+    { title: 'Guest Authority Trailers', summary: '60 to 90 second highlight reel for each guest before the episode drops.', detail: "Before the episode goes live, we put out a trailer built around the guest's world. UFC career highlights for Jared Gordon. ESPN clips and career moments for Lauren Sisler. It hooks your audience before they've heard a word of the conversation — and gets in front of the guest's existing fanbase." },
+    { title: 'Platform-Native Edits', summary: 'Every clip formatted specifically for Instagram, YouTube Shorts and TikTok.', detail: "Not the same file repurposed across platforms. Each clip is edited for the platform it's going on — aspect ratio, pacing, captions, hook timing. What works on Reels doesn't always work on TikTok. We treat them differently." },
+    { title: 'Caption and Title Writing', summary: 'Hook-led captions and titles written for every clip.', detail: "The caption is often what determines whether someone watches or scrolls. Every clip comes with a caption written to stop the scroll — leading with the most compelling line from the moment, not a description of what's in the video." },
+    { title: 'Consistent Posting Schedule', summary: 'Content going out every week across all platforms.', detail: 'The algorithm rewards consistency above almost everything else. We build a posting schedule and stick to it — content going out multiple times a week without you having to think about it.' },
+    { title: 'Monthly Strategy Review', summary: 'Monthly review of what performed and what to double down on.', detail: "Every month we look at the numbers — what got watched, what got shared, what drove listeners to the full episode. We adjust the approach based on what's actually working." },
+    { title: 'Book Promotion Integration', summary: 'Every piece of content ties back to Thriving with Addiction.', detail: 'The podcast and the book are the same machine. Every clip drives someone to the full episode, and every full episode is an opportunity to drive them to the book. We build that thread into everything we produce.' },
   ];
 
   const reasons = [
-    {
-      title: 'Your guests have audiences you aren\'t reaching',
-      summary: 'Jared Gordon has fans who have never heard of the show.',
-      detail: 'A well-timed clip in front of Jared Gordon\'s audience is a direct pipeline to new listeners who already trust him. The same logic applies to every guest with an existing following — ESPN viewers for Lauren Sisler, policy circles for Patrick Kennedy. Each guest is a distribution channel you haven\'t activated yet.',
-    },
-    {
-      title: 'The content is already there',
-      summary: 'You don\'t need to change anything about how you record.',
-      detail: 'The raw material is already exceptional. The conversations are long-form, emotionally rich, and full of moments that would stop someone mid-scroll. Nothing about your format needs to change — it just needs to be extracted, packaged and distributed consistently.',
-    },
-    {
-      title: 'Mental health content performs',
-      summary: 'Honest conversations about addiction and recovery travel on social media.',
-      detail: 'People share content that makes them feel seen, or that they want someone they love to see. Recovery stories, raw honesty about mental health, moments of genuine human vulnerability — these travel. The Jared Gordon episode alone has five or six moments that could genuinely go wide.',
-    },
-    {
-      title: 'The book needs a content engine',
-      summary: 'A podcast without distribution is a book without a marketing plan.',
-      detail: 'Building this content system now means the book has a growing, engaged audience waiting for it. Every clip is a discovery moment — someone finds the podcast through a 30-second video, listens to three episodes, and buys the book. That chain needs to start somewhere.',
-    },
+    { title: "Your guests have audiences you aren't reaching", summary: 'Jared Gordon has fans who have never heard of the show.', detail: "A well-timed clip in front of Jared Gordon's audience is a direct pipeline to new listeners who already trust him. The same logic applies to every guest with an existing following — ESPN viewers for Lauren Sisler, policy circles for Patrick Kennedy. Each guest is a distribution channel you haven't activated yet." },
+    { title: 'The content is already there', summary: "You don't need to change anything about how you record.", detail: "The raw material is already exceptional. The conversations are long-form, emotionally rich, and full of moments that would stop someone mid-scroll. Nothing about your format needs to change — it just needs to be extracted, packaged and distributed consistently." },
+    { title: 'Mental health content performs', summary: 'Honest conversations about addiction and recovery travel on social media.', detail: 'People share content that makes them feel seen, or that they want someone they love to see. Recovery stories, raw honesty about mental health, moments of genuine human vulnerability — these travel. The Jared Gordon episode alone has five or six moments that could genuinely go wide.' },
+    { title: 'The book needs a content engine', summary: 'A podcast without distribution is a book without a marketing plan.', detail: 'Building this content system now means the book has a growing, engaged audience waiting for it. Every clip is a discovery moment — someone finds the podcast through a 30-second video, listens to three episodes, and buys the book. That chain needs to start somewhere.' },
   ];
 
   return (
@@ -231,10 +195,10 @@ export default function ThrivingWithAddiction() {
 
         <section className="hero">
           <div className="inner">
-            <div className="eyebrow">Prepared for Dr. Jonathan Avery · March 2026</div>
-            <h1>Thriving with Addiction<br /><span className="hl">deserves a bigger audience.</span></h1>
-            <p className="hero-sub">You have the credibility, the story, and the guests. This is the content infrastructure to make sure the right people find it.</p>
-            <div className="hero-tags">
+            <div className="eyebrow fade-up">Prepared for Dr. Jonathan Avery · March 2026</div>
+            <h1 className="fade-up">Thriving with Addiction<br /><span className="hl">deserves a bigger audience.</span></h1>
+            <p className="hero-sub fade-up">You have the credibility, the story, and the guests. This is the content infrastructure to make sure the right people find it.</p>
+            <div className="hero-tags fade-up">
               <span className="tag">LearnLab Studio</span>
               <span className="tag">Confidential</span>
               <span className="tag">March 2026</span>
@@ -242,13 +206,13 @@ export default function ThrivingWithAddiction() {
           </div>
         </section>
 
-        <section id="sec-tool" className="section">
+        <section id="sec-tool" className="section section-tool">
           <div className="inner">
-            <div className="eyebrow">Clip Suggestion Tool</div>
-            <h2>Paste a transcript.<br /><span className="hl">Get your best clips instantly.</span></h2>
-            <p className="lead">Drop in any episode transcript and the tool identifies the five most powerful moments to cut as short-form content — exact timestamps, a suggested title and a caption hook ready to use. Paste it in or upload a file directly.</p>
+            <div className="eyebrow fade-up">Clip Suggestion Tool</div>
+            <h2 className="fade-up">Paste a transcript.<br /><span className="hl">Get your best clips instantly.</span></h2>
+            <p className="lead fade-up">Drop in any episode transcript and the tool identifies the five most powerful moments to cut as short-form content — exact timestamps, the actual words said, a suggested title and a caption hook ready to use.</p>
 
-            <div className="tool-card">
+            <div className="tool-card fade-up">
               <div className="tool-top-row">
                 <div className="tool-label">Episode Transcript</div>
                 <div className="upload-area">
@@ -276,11 +240,7 @@ export default function ThrivingWithAddiction() {
                 <span className="char-count">
                   {transcript.length > 0 ? `${transcript.length.toLocaleString()} characters` : 'No transcript yet'}
                 </span>
-                <button
-                  className={`run-btn ${loading ? 'loading' : ''}`}
-                  onClick={handleSubmit}
-                  disabled={loading}
-                >
+                <button className={`run-btn ${loading ? 'loading' : ''}`} onClick={handleSubmit} disabled={loading}>
                   {loading ? 'Analysing...' : 'Find Best Clips'}
                 </button>
               </div>
@@ -316,6 +276,12 @@ export default function ThrivingWithAddiction() {
                     </div>
                     {expandedClip === i && (
                       <div className="clip-body" onClick={e => e.stopPropagation()}>
+                        {clip.transcript_excerpt && (
+                          <div className="clip-section clip-section-transcript">
+                            <div className="clip-section-label">What's Said in This Clip</div>
+                            <p className="clip-excerpt">"{clip.transcript_excerpt}"</p>
+                          </div>
+                        )}
                         <div className="clip-section">
                           <div className="clip-section-label">Caption Hook</div>
                           <p className="clip-hook">{clip.hook}</p>
@@ -329,7 +295,7 @@ export default function ThrivingWithAddiction() {
                         </div>
                         <button
                           className="copy-all-btn"
-                          onClick={() => copy(`${clip.title}\n${clip.start_time} to ${clip.end_time}\n\n${clip.hook}`, `all-${i}`)}
+                          onClick={() => copy(`${clip.title}\n${clip.start_time} to ${clip.end_time}\n\nHook: ${clip.hook}\n\nTranscript:\n"${clip.transcript_excerpt}"`, `all-${i}`)}
                         >
                           {copied === `all-${i}` ? '✓ Copied' : 'Copy All Details'}
                         </button>
@@ -340,11 +306,11 @@ export default function ThrivingWithAddiction() {
               </div>
             )}
 
-            <div className="tool-note">
+            <div className="tool-note fade-up">
               <div className="tool-note-icon">💡</div>
               <div>
                 <strong>How to use this</strong>
-                <p>Take the timestamps, go into your video editor, cut the clip, and upload it with the suggested title and hook as the caption. That is your minimum viable content strategy. If we were working together these would be fully edited, captioned, platform-optimised cuts — but even doing it yourself, you are getting real content out consistently.</p>
+                <p>Take the timestamps, go into your video editor, cut the clip, and upload it with the suggested title and hook as the caption. The transcript excerpt shows exactly what's being said so you can jump to the right moment instantly. If we were working together these would be fully edited, captioned, platform-optimised cuts — but even doing it yourself, you are getting real content out consistently.</p>
               </div>
             </div>
           </div>
@@ -352,12 +318,12 @@ export default function ThrivingWithAddiction() {
 
         <section id="sec-package" className="section section-warm">
           <div className="inner">
-            <div className="eyebrow">The Cloud Package</div>
-            <h2>What it looks like<br /><span className="hl">when we do this properly.</span></h2>
-            <p className="lead">The tool above is the floor. This is the ceiling — a full content infrastructure built around your podcast, running every week without you having to think about it. Click any item to expand.</p>
+            <div className="eyebrow fade-up">The Cloud Package</div>
+            <h2 className="fade-up">What it looks like<br /><span className="hl">when we do this properly.</span></h2>
+            <p className="lead fade-up">The tool above is the floor. This is the ceiling — a full content infrastructure built around your podcast, running every week without you having to think about it. Click any item to expand.</p>
 
             <div className="pkg-grid">
-              <div className="pkg-main">
+              <div className="pkg-main fade-up">
                 <div className="pkg-price-block">
                   <div className="pkg-price">£1,999<span className="pkg-per">/mo</span></div>
                   <div className="pkg-price-usd">approx. $2,670 USD at current rates</div>
@@ -379,9 +345,7 @@ export default function ThrivingWithAddiction() {
                         <div className="pkg-chevron">{expandedDeliverable === i ? '−' : '+'}</div>
                       </div>
                       {expandedDeliverable === i && (
-                        <div className="pkg-item-detail">
-                          <p>{item.detail}</p>
-                        </div>
+                        <div className="pkg-item-detail"><p>{item.detail}</p></div>
                       )}
                     </div>
                   ))}
@@ -391,7 +355,7 @@ export default function ThrivingWithAddiction() {
 
               <div className="pkg-side">
                 <div
-                  className={`side-card ${expandedDeliverable === 'trailer' ? 'side-card-open' : ''}`}
+                  className={`side-card fade-up ${expandedDeliverable === 'trailer' ? 'side-card-open' : ''}`}
                   onClick={() => setExpandedDeliverable(expandedDeliverable === 'trailer' ? null : 'trailer')}
                 >
                   <div className="side-card-header">
@@ -403,9 +367,8 @@ export default function ThrivingWithAddiction() {
                     <p className="side-card-detail">It introduces the guest to your audience and introduces your podcast to theirs. The episode hasn't even dropped yet and you already have content out that their fans will share. It also gives the guest something to repost — which doubles your reach before a single listener has tuned in.</p>
                   )}
                 </div>
-
                 <div
-                  className={`side-card side-card-teal ${expandedDeliverable === 'book' ? 'side-card-open' : ''}`}
+                  className={`side-card side-card-teal fade-up ${expandedDeliverable === 'book' ? 'side-card-open' : ''}`}
                   onClick={() => setExpandedDeliverable(expandedDeliverable === 'book' ? null : 'book')}
                 >
                   <div className="side-card-header">
@@ -424,15 +387,14 @@ export default function ThrivingWithAddiction() {
 
         <section id="sec-why" className="section">
           <div className="inner">
-            <div className="eyebrow">Why Now</div>
-            <h2>The podcast is new.<br /><span className="hl">The window is open.</span></h2>
-            <p className="lead">The hardest part of growing a podcast is the early stage — building the library, establishing the rhythm, getting the algorithm working in your favour. Starting that system now is the right time. Click any card to expand.</p>
-
+            <div className="eyebrow fade-up">Why Now</div>
+            <h2 className="fade-up">The podcast is new.<br /><span className="hl">The window is open.</span></h2>
+            <p className="lead fade-up">The hardest part of growing a podcast is the early stage — building the library, establishing the rhythm, getting the algorithm working in your favour. Starting that system now is the right time. Click any card to expand.</p>
             <div className="reasons-grid">
               {reasons.map((r, i) => (
                 <div
                   key={i}
-                  className={`reason-card ${expandedReason === i ? 'reason-expanded' : ''}`}
+                  className={`reason-card fade-up ${expandedReason === i ? 'reason-expanded' : ''}`}
                   onClick={() => setExpandedReason(expandedReason === i ? null : i)}
                 >
                   <div className="reason-header">
@@ -441,9 +403,7 @@ export default function ThrivingWithAddiction() {
                   </div>
                   <h4>{r.title}</h4>
                   <p className="reason-summary">{r.summary}</p>
-                  {expandedReason === i && (
-                    <p className="reason-detail">{r.detail}</p>
-                  )}
+                  {expandedReason === i && <p className="reason-detail">{r.detail}</p>}
                 </div>
               ))}
             </div>
@@ -452,10 +412,10 @@ export default function ThrivingWithAddiction() {
 
         <section className="cta-section">
           <div className="cta-inner">
-            <div className="eyebrow">Next Steps</div>
-            <h2>Ready when<br /><span className="hl">you are.</span></h2>
-            <p>Even if the budget isn't there right now, use the tool above for every episode. Get clips out. Get content moving. And when you're ready to hand it over, I'm here.</p>
-            <a href="mailto:tom@learnlab.studio" className="cta-btn-lg">Get in Touch</a>
+            <div className="eyebrow fade-up">Next Steps</div>
+            <h2 className="fade-up">Ready when<br /><span className="hl">you are.</span></h2>
+            <p className="fade-up">Even if the budget isn't there right now, use the tool above for every episode. Get clips out. Get content moving. And when you're ready to hand it over, I'm here.</p>
+            <a href="mailto:tom@learnlab.studio" className="cta-btn-lg fade-up">Get in Touch</a>
           </div>
         </section>
 
@@ -464,6 +424,15 @@ export default function ThrivingWithAddiction() {
 
       <style jsx global>{`
         body { margin: 0; background: #F7F4EF; }
+        .fade-up {
+          opacity: 0;
+          transform: translateY(22px);
+          transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .fade-up.visible {
+          opacity: 1;
+          transform: translateY(0);
+        }
       `}</style>
 
       <style jsx>{`
@@ -474,11 +443,9 @@ export default function ThrivingWithAddiction() {
           font-family: 'JetBrains Mono', 'Courier New', monospace;
         }
         .bg-canvas {
-          position: absolute;
-          top: 0; left: 0;
+          position: absolute; top: 0; left: 0;
           width: 100%; height: 100%;
-          pointer-events: none;
-          z-index: 0;
+          pointer-events: none; z-index: 0;
         }
         .page { position: relative; z-index: 1; padding-top: 80px; }
 
@@ -521,6 +488,11 @@ export default function ThrivingWithAddiction() {
           margin-bottom: 18px; display: block;
         }
         .section { padding: 100px 48px; }
+        .section-tool {
+          background: rgba(74,124,126,0.04);
+          border-top: 1px solid rgba(74,124,126,0.1);
+          border-bottom: 1px solid rgba(74,124,126,0.1);
+        }
         .section-warm {
           background: rgba(0,0,0,0.03);
           border-top: 1px solid rgba(0,0,0,0.07);
@@ -541,9 +513,8 @@ export default function ThrivingWithAddiction() {
           border: 1px solid rgba(0,0,0,0.12); border-radius: 6px; color: rgba(0,0,0,0.3);
         }
 
-        /* TOOL */
         .tool-card {
-          background: #fff; border: 1px solid rgba(0,0,0,0.10);
+          background: #fff; border: 1px solid rgba(74,124,126,0.15);
           border-radius: 20px; padding: 32px; margin-bottom: 28px;
           box-shadow: 0 2px 20px rgba(0,0,0,0.04);
         }
@@ -601,7 +572,6 @@ export default function ThrivingWithAddiction() {
         }
         .loading-state p { color: rgba(0,0,0,0.35); font-size: 13px; }
 
-        /* CLIP CARDS */
         .clips-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 32px; }
         .clip-card {
           background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 14px;
@@ -624,10 +594,18 @@ export default function ThrivingWithAddiction() {
         .clip-chevron { font-size: 16px; color: rgba(0,0,0,0.25); flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
         .clip-body { padding: 0 22px 22px; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 18px; }
         .clip-section { background: #F7F4EF; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+        .clip-section-transcript {
+          background: rgba(44,74,82,0.05);
+          border: 1px solid rgba(44,74,82,0.12);
+        }
         .clip-section-muted { background: rgba(0,0,0,0.02); }
         .clip-section-label {
           font-family: 'JetBrains Mono', monospace; font-size: 9px;
           letter-spacing: 0.18em; text-transform: uppercase; color: rgba(0,0,0,0.28); margin-bottom: 8px;
+        }
+        .clip-excerpt {
+          font-size: 13px; color: #2C4A52; line-height: 1.65; margin: 0;
+          font-style: italic; white-space: pre-wrap;
         }
         .clip-hook { font-size: 14px; color: #1A2A2E; line-height: 1.5; margin: 0 0 12px; }
         .clip-reason { font-size: 13px; color: rgba(26,42,46,0.6); line-height: 1.5; margin: 0; }
@@ -654,7 +632,6 @@ export default function ThrivingWithAddiction() {
         .tool-note strong { display: block; color: #1A2A2E; font-size: 14px; margin-bottom: 6px; }
         .tool-note p { color: rgba(26,42,46,0.55); font-size: 13px; line-height: 1.65; margin: 0; }
 
-        /* PACKAGE */
         .pkg-grid { display: grid; grid-template-columns: 1fr 360px; gap: 22px; align-items: start; }
         .pkg-main {
           background: #fff; border: 1px solid rgba(0,0,0,0.10);
@@ -703,7 +680,6 @@ export default function ThrivingWithAddiction() {
         .side-card p:last-child { margin-bottom: 0; }
         .side-card-detail { padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.06); margin-top: 4px; }
 
-        /* REASONS */
         .reasons-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
         .reason-card {
           background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 16px;
@@ -719,7 +695,6 @@ export default function ThrivingWithAddiction() {
         .reason-summary { color: rgba(26,42,46,0.5); font-size: 13px; line-height: 1.6; margin: 0; }
         .reason-detail { color: rgba(26,42,46,0.6); font-size: 13px; line-height: 1.65; margin: 14px 0 0; padding-top: 14px; border-top: 1px solid rgba(0,0,0,0.06); }
 
-        /* CTA */
         .cta-section {
           text-align: center; padding: 100px 48px;
           background: rgba(44,74,82,0.04); border-top: 1px solid rgba(0,0,0,0.07);
