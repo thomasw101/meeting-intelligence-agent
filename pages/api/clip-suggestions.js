@@ -1,3 +1,37 @@
+function cleanTranscript(raw) {
+  const lines = raw.split('\n');
+  const cleaned = [];
+  let pendingTimestamp = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const timestampOnly = /^[\[\(]?\d{1,2}:\d{2}(:\d{2})?(,\d+)?[\]\)]?\s*$/.test(line);
+    if (timestampOnly) {
+      pendingTimestamp = line.replace(/[\[\]\(\)]/g, '').split(',')[0].trim();
+      continue;
+    }
+
+    const bareLabel = /^(Unknown|Speaker\s*\d*|Host|Guest|Interviewer|Interviewee|[A-Z][a-z]+):?\s*$/.test(line);
+    if (bareLabel) continue;
+
+    if (pendingTimestamp) {
+      cleaned.push(`[${pendingTimestamp}] ${line}`);
+      pendingTimestamp = null;
+    } else {
+      const inlineTs = line.match(/^(\d{1,2}:\d{2}(:\d{2})?)\s+(.*)/);
+      if (inlineTs) {
+        cleaned.push(`[${inlineTs[1]}] ${inlineTs[3]}`);
+      } else {
+        cleaned.push(line);
+      }
+    }
+  }
+
+  return cleaned.join('\n');
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -9,26 +43,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Transcript too short or missing' });
   }
 
-  const cleaned = transcript
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => {
-      if (!line) return false;
-      if (/^\d{2}:\d{2}:\d{2}[:\d\s\-]+\d{2}:\d{2}:\d{2}/.test(line)) return false;
-      if (/^Unknown$/i.test(line)) return false;
-      return true;
-    })
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const cleaned = cleanTranscript(transcript);
 
   const prompt = `You are a podcast content strategist specialising in short-form social media clips.
 
 Analyse this podcast transcript and identify exactly 5 of the most powerful, emotionally engaging moments that would perform well as short-form clips on Instagram Reels, YouTube Shorts, and TikTok.
 
 For each clip return:
-- start_time: approximate timestamp or position reference (e.g. "05:15" or "early in episode", "around halfway")
-- end_time: approximate end timestamp or position reference
+- start_time: timestamp where the clip begins — use the inline [MM:SS] timestamps from the transcript exactly. If no timestamps exist use "—"
+- end_time: timestamp where the clip ends
 - title: a punchy, hook-driven title for the clip (max 10 words)
 - hook: the opening caption line (max 20 words, no hashtags)
 - reason: one sentence explaining why this moment will perform well
@@ -53,9 +76,7 @@ ${cleaned.slice(0, 90000)}`;
       body: JSON.stringify({
         model:      'claude-haiku-4-5-20251001',
         max_tokens: 4096,
-        messages: [
-          { role: 'user', content: prompt }
-        ],
+        messages: [{ role: 'user', content: prompt }],
       }),
     });
 

@@ -96,16 +96,32 @@ export default function ThrivingWithAddiction() {
     return () => observer.disconnect();
   }, [mounted, clips, expandedClip, expandedDeliverable, expandedReason]);
 
+  // ── CSV parser — preserves timestamps inline ──
+  // YouTube CSV format: index, start_time, end_time, text
   const parseFileContent = (text, name) => {
     if (name.endsWith('.csv')) {
-      return text
-        .split('\n')
-        .map(row => {
-          const cols = row.split(',');
-          return cols.slice(3).join(' ').replace(/^"|"$/g, '').trim();
-        })
-        .filter(Boolean)
-        .join(' ');
+      const lines = text.split('\n');
+      const result = [];
+      for (const row of lines) {
+        // Split on comma but respect quoted fields
+        const cols = row.match(/(".*?"|[^,]+)(?=,|$)/g);
+        if (!cols || cols.length < 4) continue;
+        const startTime = cols[1]?.replace(/"/g, '').trim();
+        const spoken    = cols.slice(3).join(' ').replace(/^"|"$/g, '').trim();
+        if (!spoken) continue;
+        // Format timestamp as MM:SS from HH:MM:SS or MM:SS
+        const ts = startTime ? startTime.split('.')[0] : null;
+        if (ts) {
+          const parts = ts.split(':');
+          const formatted = parts.length === 3
+            ? `${parts[1]}:${parts[2]}`   // HH:MM:SS → MM:SS
+            : ts;                          // already MM:SS
+          result.push(`[${formatted}] ${spoken}`);
+        } else {
+          result.push(spoken);
+        }
+      }
+      return result.join('\n');
     }
     return text;
   };
@@ -116,9 +132,7 @@ export default function ThrivingWithAddiction() {
     setFileName(file.name);
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const raw = ev.target.result;
-      const parsed = parseFileContent(raw, file.name);
-      setTranscript(parsed);
+      setTranscript(parseFileContent(ev.target.result, file.name));
     };
     reader.readAsText(file);
   };
@@ -226,24 +240,27 @@ export default function ThrivingWithAddiction() {
                   setFileName(file.name);
                   const reader = new FileReader();
                   reader.onload = ev => {
-                    const raw = ev.target.result;
-                    setTranscript(parseFileContent(raw, file.name));
+                    setTranscript(parseFileContent(ev.target.result, file.name));
                   };
                   reader.readAsText(file);
                 }
               }}
             >
               <div className="tool-top-row">
-                <div className="tool-label">Episode Transcript</div>
+                <div className="tool-label">
+                  {fileName ? <span className="file-name">// {fileName}</span> : 'Episode Transcript'}
+                </div>
                 <div className="upload-area">
-                  {fileName && <span className="file-name">{fileName}</span>}
+                  {transcript.length > 0 && (
+                    <span className="char-count">{transcript.length.toLocaleString()} chars</span>
+                  )}
                   <button className="upload-btn" onClick={() => fileInputRef.current?.click()}>
                     {fileName ? 'Change File' : 'Upload File'}
                   </button>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".txt,.csv,.srt,.vtt,.doc,.docx,text/*"
+                    accept=".txt,.csv,.srt,.vtt,text/*"
                     style={{ display: 'none' }}
                     onChange={handleFileUpload}
                   />
@@ -251,7 +268,7 @@ export default function ThrivingWithAddiction() {
               </div>
               <textarea
                 className="transcript-input"
-                placeholder="Paste your full episode transcript here, drag and drop a file, or use the upload button. Works with .txt, .csv, .srt and most text formats..."
+                placeholder="Paste your full episode transcript here, drag and drop a file, or use the upload button..."
                 value={transcript}
                 onChange={e => { setTranscript(e.target.value); setFileName(''); }}
                 rows={12}
@@ -260,9 +277,6 @@ export default function ThrivingWithAddiction() {
                 For accurate timestamps, upload a .csv or .txt file exported from YouTube or your transcription tool. Plain pasted text will still find the right moments but won't have exact timecodes.
               </div>
               <div className="tool-footer">
-                <span className="char-count">
-                  {transcript.length > 0 ? `${transcript.length.toLocaleString()} characters` : 'No transcript yet'}
-                </span>
                 <button className={`run-btn ${loading ? 'loading' : ''}`} onClick={handleSubmit} disabled={loading}>
                   {loading ? 'Analysing...' : 'Find Best Clips'}
                 </button>
@@ -290,7 +304,7 @@ export default function ThrivingWithAddiction() {
                         <div className="clip-num">0{i + 1}</div>
                         <div className="clip-times">
                           <span className="time-badge">{clip.start_time}</span>
-                          <span className="time-sep">to</span>
+                          <span className="time-sep">→</span>
                           <span className="time-badge">{clip.end_time}</span>
                         </div>
                         <h4 className="clip-title">{clip.title}</h4>
@@ -305,7 +319,7 @@ export default function ThrivingWithAddiction() {
                             <p className="clip-excerpt">"{clip.transcript_excerpt}"</p>
                           </div>
                         )}
-                        <div className="clip-section">
+                        <div className="clip-section clip-section-hook">
                           <div className="clip-section-label">Caption Hook</div>
                           <p className="clip-hook">{clip.hook}</p>
                           <button className="copy-btn" onClick={() => copy(clip.hook, `hook-${i}`)}>
@@ -318,9 +332,12 @@ export default function ThrivingWithAddiction() {
                         </div>
                         <button
                           className="copy-all-btn"
-                          onClick={() => copy(`${clip.title}\n${clip.start_time} to ${clip.end_time}\n\nHook: ${clip.hook}\n\nTranscript:\n"${clip.transcript_excerpt}"`, `all-${i}`)}
+                          onClick={() => copy(
+                            `${clip.title}\n${clip.start_time} → ${clip.end_time}\n\nHook: ${clip.hook}\n\nTranscript:\n"${clip.transcript_excerpt}"`,
+                            `all-${i}`
+                          )}
                         >
-                          {copied === `all-${i}` ? '✓ Copied' : 'Copy All Details'}
+                          {copied === `all-${i}` ? '✓ Copied' : '⎘ Copy All Details'}
                         </button>
                       </div>
                     )}
@@ -461,80 +478,31 @@ export default function ThrivingWithAddiction() {
       <style jsx global>{`
         body { margin: 0; background: #F7F4EF; }
         .fade-up {
-          opacity: 0;
-          transform: translateY(18px);
+          opacity: 0; transform: translateY(18px);
           transition: opacity 0.55s ease, transform 0.55s ease;
           will-change: opacity, transform;
         }
-        .fade-up.visible {
-          opacity: 1 !important;
-          transform: translateY(0) !important;
-        }
+        .fade-up.visible { opacity: 1 !important; transform: translateY(0) !important; }
       `}</style>
 
       <style jsx>{`
-        .wrap {
-          position: relative;
-          min-height: 100vh;
-          background: #F7F4EF;
-          font-family: 'JetBrains Mono', 'Courier New', monospace;
-        }
-        .bg-canvas {
-          position: absolute; top: 0; left: 0;
-          width: 100%; height: 100%;
-          pointer-events: none; z-index: 0;
-        }
+        .wrap { position: relative; min-height: 100vh; background: #F7F4EF; font-family: 'JetBrains Mono', 'Courier New', monospace; }
+        .bg-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
         .page { position: relative; z-index: 1; padding-top: 80px; }
 
-        .top-nav {
-          position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-          z-index: 200; display: flex; align-items: center; gap: 8px;
-        }
-        .back-btn {
-          padding: 9px 16px; background: rgba(247,244,239,0.92);
-          backdrop-filter: blur(16px); border: 1px solid rgba(0,0,0,0.10);
-          border-radius: 999px; color: rgba(0,0,0,0.4);
-          font-family: 'JetBrains Mono', monospace; font-size: 10px;
-          letter-spacing: 0.1em; cursor: pointer; transition: all 0.2s; white-space: nowrap;
-        }
+        .top-nav { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 200; display: flex; align-items: center; gap: 8px; }
+        .back-btn { padding: 9px 16px; background: rgba(247,244,239,0.92); backdrop-filter: blur(16px); border: 1px solid rgba(0,0,0,0.10); border-radius: 999px; color: rgba(0,0,0,0.4); font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
         .back-btn:hover { color: #4A7C7E; border-color: rgba(74,124,126,0.4); }
-        .nav-pills {
-          display: flex; align-items: center; gap: 4px;
-          background: rgba(247,244,239,0.92); backdrop-filter: blur(16px);
-          border: 1px solid rgba(0,0,0,0.10); border-radius: 999px; padding: 6px 8px;
-        }
-        .nav-item {
-          padding: 8px 14px; background: transparent; border: none;
-          color: rgba(0,0,0,0.35); font-family: 'JetBrains Mono', monospace;
-          font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
-          cursor: pointer; border-radius: 999px; transition: all 0.2s; white-space: nowrap;
-        }
+        .nav-pills { display: flex; align-items: center; gap: 4px; background: rgba(247,244,239,0.92); backdrop-filter: blur(16px); border: 1px solid rgba(0,0,0,0.10); border-radius: 999px; padding: 6px 8px; }
+        .nav-item { padding: 8px 14px; background: transparent; border: none; color: rgba(0,0,0,0.35); font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; border-radius: 999px; transition: all 0.2s; white-space: nowrap; }
         .nav-item:hover { color: #4A7C7E; background: rgba(74,124,126,0.08); }
-        .nav-cta {
-          padding: 8px 18px; background: #2C4A52; border: none; color: #fff;
-          font-family: 'JetBrains Mono', monospace; font-size: 10px;
-          letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;
-          cursor: pointer; border-radius: 999px; transition: all 0.2s;
-          white-space: nowrap; text-decoration: none;
-        }
+        .nav-cta { padding: 8px 18px; background: #2C4A52; border: none; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; cursor: pointer; border-radius: 999px; transition: all 0.2s; white-space: nowrap; text-decoration: none; }
         .nav-cta:hover { background: #3a6070; }
 
-        .eyebrow {
-          font-family: 'JetBrains Mono', monospace; font-size: 10px;
-          letter-spacing: 0.2em; text-transform: uppercase; color: #4A7C7E;
-          margin-bottom: 18px; display: block;
-        }
+        .eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: #4A7C7E; margin-bottom: 18px; display: block; }
         .section { padding: 100px 48px; }
-        .section-tool {
-          background: rgba(74,124,126,0.04);
-          border-top: 1px solid rgba(74,124,126,0.1);
-          border-bottom: 1px solid rgba(74,124,126,0.1);
-        }
-        .section-warm {
-          background: rgba(0,0,0,0.03);
-          border-top: 1px solid rgba(0,0,0,0.07);
-          border-bottom: 1px solid rgba(0,0,0,0.07);
-        }
+        .section-tool { background: rgba(74,124,126,0.04); border-top: 1px solid rgba(74,124,126,0.1); border-bottom: 1px solid rgba(74,124,126,0.1); }
+        .section-warm { background: rgba(0,0,0,0.03); border-top: 1px solid rgba(0,0,0,0.07); border-bottom: 1px solid rgba(0,0,0,0.07); }
         .inner { max-width: 1100px; margin: 0 auto; }
         .hero { padding: 80px 48px 100px; }
         h1 { font-size: 56px; font-weight: 800; color: #1A2A2E; line-height: 1.08; margin-bottom: 24px; letter-spacing: -0.02em; }
@@ -544,152 +512,75 @@ export default function ThrivingWithAddiction() {
         .hero-sub { color: rgba(26,42,46,0.55); font-size: 17px; line-height: 1.7; max-width: 620px; margin-bottom: 36px; }
         .lead { color: rgba(26,42,46,0.55); font-size: 15px; line-height: 1.7; max-width: 680px; margin-bottom: 48px; }
         .hero-tags { display: flex; gap: 10px; flex-wrap: wrap; }
-        .tag {
-          font-family: 'JetBrains Mono', monospace; font-size: 10px;
-          letter-spacing: 0.12em; padding: 6px 14px;
-          border: 1px solid rgba(0,0,0,0.12); border-radius: 6px; color: rgba(0,0,0,0.3);
-        }
+        .tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; padding: 6px 14px; border: 1px solid rgba(0,0,0,0.12); border-radius: 6px; color: rgba(0,0,0,0.3); }
 
-        .tool-card {
-          background: #fff; border: 1px solid rgba(74,124,126,0.15);
-          border-radius: 20px; padding: 32px; margin-bottom: 28px;
-          box-shadow: 0 2px 20px rgba(0,0,0,0.04);
-        }
-        .tool-top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-        .tool-label {
-          font-family: 'JetBrains Mono', monospace; font-size: 10px;
-          letter-spacing: 0.18em; text-transform: uppercase; color: rgba(0,0,0,0.3);
-        }
+        .tool-card { background: #fff; border: 1px solid rgba(74,124,126,0.15); border-radius: 20px; padding: 32px; margin-bottom: 28px; box-shadow: 0 2px 20px rgba(0,0,0,0.04); transition: border-color 0.2s, box-shadow 0.2s; }
+        .tool-card-drag { border-color: rgba(74,124,126,0.5) !important; background: rgba(74,124,126,0.02); box-shadow: 0 4px 24px rgba(74,124,126,0.15) !important; }
+        .tool-top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 12px; }
+        .tool-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(0,0,0,0.3); }
+        .file-name { color: #4A7C7E; text-transform: none; letter-spacing: 0.1em; }
         .upload-area { display: flex; align-items: center; gap: 12px; }
-        .file-name {
-          font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #4A7C7E;
-          max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        }
-        .upload-btn {
-          padding: 8px 16px; background: rgba(74,124,126,0.08);
-          border: 1px solid rgba(74,124,126,0.3); border-radius: 8px; color: #4A7C7E;
-          font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
-          letter-spacing: 0.06em; cursor: pointer; transition: all 0.2s; white-space: nowrap;
-        }
+        .char-count { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(0,0,0,0.28); }
+        .upload-btn { padding: 8px 16px; background: rgba(74,124,126,0.08); border: 1px solid rgba(74,124,126,0.3); border-radius: 8px; color: #4A7C7E; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
         .upload-btn:hover { background: rgba(74,124,126,0.15); border-color: #4A7C7E; }
-        .transcript-input {
-          width: 100%; padding: 18px; background: #F7F4EF;
-          border: 1px solid rgba(0,0,0,0.10); border-radius: 12px;
-          font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #1A2A2E;
-          line-height: 1.6; resize: vertical; outline: none;
-          transition: border-color 0.2s; box-sizing: border-box;
-        }
+        .transcript-input { width: 100%; padding: 18px; background: #F7F4EF; border: 1px solid rgba(0,0,0,0.10); border-radius: 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #1A2A2E; line-height: 1.6; resize: vertical; outline: none; transition: border-color 0.2s; box-sizing: border-box; }
         .transcript-input:focus { border-color: #4A7C7E; }
         .transcript-input::placeholder { color: rgba(0,0,0,0.22); }
-        .tool-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; gap: 16px; }
-        .timecode-note {
-          font-family: 'JetBrains Mono', monospace; font-size: 11px;
-          color: rgba(0,0,0,0.32); line-height: 1.5; margin-top: 12px;
-          padding: 10px 14px; background: rgba(255,107,53,0.05);
-          border: 1px solid rgba(255,107,53,0.18); border-radius: 8px;
-        }
-        .char-count { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: rgba(0,0,0,0.28); letter-spacing: 0.06em; }
-        .run-btn {
-          padding: 14px 32px; background: #2C4A52; color: #fff; border: none;
-          border-radius: 10px; font-family: 'JetBrains Mono', monospace; font-size: 12px;
-          font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-          cursor: pointer; transition: all 0.2s; white-space: nowrap; flex-shrink: 0;
-        }
+        .timecode-note { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: rgba(0,0,0,0.32); line-height: 1.5; margin-top: 12px; padding: 10px 14px; background: rgba(74,124,126,0.04); border: 1px solid rgba(74,124,126,0.15); border-radius: 8px; }
+        .tool-footer { display: flex; justify-content: flex-end; margin-top: 16px; }
+        .run-btn { padding: 14px 32px; background: #2C4A52; color: #fff; border: none; border-radius: 10px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
         .run-btn:hover:not(:disabled) { background: #3a6070; box-shadow: 0 4px 16px rgba(44,74,82,0.3); }
         .run-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        .error-msg {
-          margin-top: 14px; padding: 12px 16px; background: rgba(180,60,60,0.06);
-          border: 1px solid rgba(180,60,60,0.18); border-radius: 8px; color: #a03030; font-size: 13px;
-        }
+        .error-msg { margin-top: 14px; padding: 12px 16px; background: rgba(180,60,60,0.06); border: 1px solid rgba(180,60,60,0.18); border-radius: 8px; color: #a03030; font-size: 13px; }
+
         .loading-state { text-align: center; padding: 48px 0; }
         .loading-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; }
-        .loading-dots span {
-          width: 8px; height: 8px; border-radius: 50%; background: #4A7C7E;
-          animation: pulse 1.2s ease-in-out infinite;
-        }
+        .loading-dots span { width: 8px; height: 8px; border-radius: 50%; background: #4A7C7E; animation: pulse 1.2s ease-in-out infinite; }
         .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
         .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes pulse {
-          0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
-          40% { opacity: 1; transform: scale(1); }
-        }
+        @keyframes pulse { 0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1); } }
         .loading-state p { color: rgba(0,0,0,0.35); font-size: 13px; }
 
         .clips-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 32px; }
-        .clip-card {
-          background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 14px;
-          cursor: pointer; transition: all 0.25s cubic-bezier(0.22,1,0.36,1);
-          box-shadow: 0 1px 6px rgba(0,0,0,0.04); overflow: hidden;
-        }
+        .clip-card { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 14px; cursor: pointer; transition: all 0.25s cubic-bezier(0.22,1,0.36,1); box-shadow: 0 1px 6px rgba(0,0,0,0.04); overflow: hidden; }
         .clip-card:hover { border-color: rgba(74,124,126,0.35); box-shadow: 0 6px 20px rgba(0,0,0,0.07); transform: translateY(-1px); }
         .clip-expanded { border-color: rgba(255,107,53,0.35); box-shadow: 0 8px 24px rgba(255,107,53,0.08); background: rgba(255,107,53,0.02); }
         .clip-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 22px; gap: 16px; }
         .clip-left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
         .clip-num { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #4A7C7E; letter-spacing: 0.2em; flex-shrink: 0; }
         .clip-times { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-        .time-badge {
-          font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
-          color: #2C4A52; background: #F0F5F5; padding: 4px 10px; border-radius: 5px;
-          border: 1px solid rgba(74,124,126,0.2);
-        }
+        .time-badge { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: #2C4A52; background: #F0F5F5; padding: 4px 10px; border-radius: 5px; border: 1px solid rgba(74,124,126,0.2); }
         .time-sep { font-size: 10px; color: rgba(0,0,0,0.25); }
         .clip-title { font-size: 14px; font-weight: 700; color: #1A2A2E; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .clip-chevron { font-size: 16px; color: rgba(0,0,0,0.25); flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
         .clip-body { padding: 0 22px 22px; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 18px; }
-        .clip-section { background: #F7F4EF; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
-        .clip-section-transcript {
-          background: rgba(44,74,82,0.05);
-          border: 1px solid rgba(44,74,82,0.12);
-        }
+        .clip-section { border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; background: #F7F4EF; }
+        .clip-section-transcript { background: rgba(44,74,82,0.05); border: 1px solid rgba(44,74,82,0.12); }
+        .clip-section-hook { background: rgba(255,107,53,0.04); border: 1px solid rgba(255,107,53,0.15); }
         .clip-section-muted { background: rgba(0,0,0,0.02); }
-        .clip-section-label {
-          font-family: 'JetBrains Mono', monospace; font-size: 9px;
-          letter-spacing: 0.18em; text-transform: uppercase; color: rgba(0,0,0,0.28); margin-bottom: 8px;
-        }
-        .clip-excerpt {
-          font-size: 13px; color: #2C4A52; line-height: 1.65; margin: 0;
-          font-style: italic; white-space: pre-wrap;
-        }
+        .clip-section-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(0,0,0,0.28); margin-bottom: 8px; }
+        .clip-excerpt { font-size: 13px; color: #2C4A52; line-height: 1.65; margin: 0; font-style: italic; white-space: pre-wrap; }
         .clip-hook { font-size: 14px; color: #1A2A2E; line-height: 1.5; margin: 0 0 12px; }
         .clip-reason { font-size: 13px; color: rgba(26,42,46,0.6); line-height: 1.5; margin: 0; }
-        .copy-btn {
-          padding: 6px 14px; background: #2C4A52; color: #fff; border: none;
-          border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10px;
-          font-weight: 700; letter-spacing: 0.06em; cursor: pointer; transition: all 0.2s;
-        }
+        .copy-btn { padding: 6px 14px; background: #2C4A52; color: #fff; border: none; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; cursor: pointer; transition: all 0.2s; }
         .copy-btn:hover { background: #3a6070; }
-        .copy-all-btn {
-          margin-top: 4px; padding: 10px 20px; background: transparent;
-          border: 1px solid rgba(74,124,126,0.28); border-radius: 8px; color: #4A7C7E;
-          font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
-          letter-spacing: 0.06em; cursor: pointer; transition: all 0.2s; width: 100%;
-        }
+        .copy-all-btn { margin-top: 4px; padding: 10px 20px; background: transparent; border: 1px solid rgba(74,124,126,0.28); border-radius: 8px; color: #4A7C7E; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; cursor: pointer; transition: all 0.2s; width: 100%; }
         .copy-all-btn:hover { background: rgba(74,124,126,0.06); border-color: #4A7C7E; }
 
-        .tool-note {
-          display: flex; gap: 18px; background: rgba(74,124,126,0.05);
-          border: 1px solid rgba(74,124,126,0.16); border-radius: 14px;
-          padding: 22px; align-items: flex-start;
-        }
+        .tool-note { display: flex; gap: 18px; background: rgba(74,124,126,0.05); border: 1px solid rgba(74,124,126,0.16); border-radius: 14px; padding: 22px; align-items: flex-start; }
         .tool-note-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
         .tool-note strong { display: block; color: #1A2A2E; font-size: 14px; margin-bottom: 6px; }
         .tool-note p { color: rgba(26,42,46,0.55); font-size: 13px; line-height: 1.65; margin: 0; }
 
         .pkg-grid { display: grid; grid-template-columns: 1fr 360px; gap: 22px; align-items: start; }
-        .pkg-main {
-          background: #fff; border: 1px solid rgba(0,0,0,0.10);
-          border-radius: 22px; padding: 42px; box-shadow: 0 2px 20px rgba(0,0,0,0.04);
-        }
+        .pkg-main { background: #fff; border: 1px solid rgba(0,0,0,0.10); border-radius: 22px; padding: 42px; box-shadow: 0 2px 20px rgba(0,0,0,0.04); }
         .pkg-price-block { margin-bottom: 28px; }
         .pkg-price { font-size: 54px; font-weight: 800; color: #1A2A2E; line-height: 1; letter-spacing: -0.02em; }
         .pkg-per { font-size: 20px; font-weight: 400; color: rgba(26,42,46,0.35); }
         .pkg-price-usd { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: rgba(26,42,46,0.3); margin-top: 6px; letter-spacing: 0.04em; }
         .pkg-divider { height: 1px; background: rgba(0,0,0,0.07); margin-bottom: 22px; }
         .pkg-items { display: flex; flex-direction: column; gap: 2px; margin-bottom: 30px; }
-        .pkg-item {
-          border: 1px solid transparent; border-radius: 10px;
-          padding: 12px 14px; cursor: pointer; transition: all 0.2s;
-        }
+        .pkg-item { border: 1px solid transparent; border-radius: 10px; padding: 12px 14px; cursor: pointer; transition: all 0.2s; }
         .pkg-item:hover { background: rgba(74,124,126,0.04); border-color: rgba(74,124,126,0.18); }
         .pkg-item-expanded { background: rgba(255,107,53,0.04); border-color: rgba(255,107,53,0.3); }
         .pkg-item-header { display: flex; gap: 12px; align-items: flex-start; }
@@ -700,20 +591,11 @@ export default function ThrivingWithAddiction() {
         .pkg-chevron { font-size: 16px; color: rgba(0,0,0,0.2); flex-shrink: 0; font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
         .pkg-item-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.06); padding-left: 18px; }
         .pkg-item-detail p { color: rgba(26,42,46,0.6); font-size: 13px; line-height: 1.65; margin: 0; }
-        .cta-btn {
-          display: block; width: 100%; padding: 16px; background: #2C4A52; color: #fff; border: none;
-          border-radius: 12px; font-family: 'JetBrains Mono', monospace; font-weight: 800;
-          font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;
-          transition: 0.2s; text-align: center; text-decoration: none; box-sizing: border-box;
-        }
+        .cta-btn { display: block; width: 100%; padding: 16px; background: #2C4A52; color: #fff; border: none; border-radius: 12px; font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: 0.2s; text-align: center; text-decoration: none; box-sizing: border-box; }
         .cta-btn:hover { background: #3a6070; box-shadow: 0 6px 20px rgba(44,74,82,0.25); }
 
         .pkg-side { display: flex; flex-direction: column; gap: 14px; }
-        .side-card {
-          background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 16px;
-          padding: 22px; cursor: pointer; transition: all 0.25s cubic-bezier(0.22,1,0.36,1);
-          box-shadow: 0 1px 8px rgba(0,0,0,0.03);
-        }
+        .side-card { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 16px; padding: 22px; cursor: pointer; transition: all 0.25s cubic-bezier(0.22,1,0.36,1); box-shadow: 0 1px 8px rgba(0,0,0,0.03); }
         .side-card:hover { border-color: rgba(74,124,126,0.3); box-shadow: 0 6px 20px rgba(0,0,0,0.07); transform: translateY(-2px); }
         .side-card-open { border-color: rgba(255,107,53,0.4); background: rgba(255,107,53,0.04); box-shadow: 0 6px 20px rgba(255,107,53,0.08); }
         .side-card-teal { border-color: rgba(74,124,126,0.18); }
@@ -725,14 +607,9 @@ export default function ThrivingWithAddiction() {
         .side-card-flywheel { border-color: rgba(255,107,53,0.2); background: rgba(255,107,53,0.02); }
         .side-card-flywheel:hover { border-color: rgba(255,107,53,0.4); box-shadow: 0 6px 20px rgba(255,107,53,0.1); }
         .side-card-label-orange { color: #C05020; }
-        .tool-card-drag { border-color: rgba(74,124,126,0.5) !important; background: rgba(74,124,126,0.03); box-shadow: 0 4px 24px rgba(74,124,126,0.15) !important; }
 
         .reasons-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-        .reason-card {
-          background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 16px;
-          padding: 26px; cursor: pointer; transition: all 0.25s cubic-bezier(0.22,1,0.36,1);
-          box-shadow: 0 1px 8px rgba(0,0,0,0.03);
-        }
+        .reason-card { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 16px; padding: 26px; cursor: pointer; transition: all 0.25s cubic-bezier(0.22,1,0.36,1); box-shadow: 0 1px 8px rgba(0,0,0,0.03); }
         .reason-card:hover { border-color: rgba(74,124,126,0.3); box-shadow: 0 8px 24px rgba(0,0,0,0.07); transform: translateY(-2px); }
         .reason-expanded { border-color: rgba(74,124,126,0.4); background: rgba(74,124,126,0.02); }
         .reason-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -742,25 +619,13 @@ export default function ThrivingWithAddiction() {
         .reason-summary { color: rgba(26,42,46,0.5); font-size: 13px; line-height: 1.6; margin: 0; }
         .reason-detail { color: rgba(26,42,46,0.6); font-size: 13px; line-height: 1.65; margin: 14px 0 0; padding-top: 14px; border-top: 1px solid rgba(0,0,0,0.06); }
 
-        .cta-section {
-          text-align: center; padding: 100px 48px;
-          background: rgba(44,74,82,0.04); border-top: 1px solid rgba(0,0,0,0.07);
-        }
+        .cta-section { text-align: center; padding: 100px 48px; background: rgba(44,74,82,0.04); border-top: 1px solid rgba(0,0,0,0.07); }
         .cta-inner { max-width: 520px; margin: 0 auto; }
         .cta-inner h2 { font-size: 46px; }
         .cta-inner p { color: rgba(26,42,46,0.5); font-size: 15px; line-height: 1.7; margin-bottom: 36px; }
-        .cta-btn-lg {
-          display: inline-block; padding: 18px 50px; background: #2C4A52; color: #fff;
-          border: none; border-radius: 14px; font-family: 'JetBrains Mono', monospace;
-          font-weight: 800; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
-          cursor: pointer; transition: 0.2s; text-decoration: none;
-        }
+        .cta-btn-lg { display: inline-block; padding: 18px 50px; background: #2C4A52; color: #fff; border: none; border-radius: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: 0.2s; text-decoration: none; }
         .cta-btn-lg:hover { background: #3a6070; box-shadow: 0 8px 28px rgba(44,74,82,0.3); }
-        .footer {
-          text-align: center; padding: 32px; font-family: 'JetBrains Mono', monospace;
-          font-size: 10px; color: rgba(0,0,0,0.16); letter-spacing: 0.1em;
-          border-top: 1px solid rgba(0,0,0,0.07);
-        }
+        .footer { text-align: center; padding: 32px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(0,0,0,0.16); letter-spacing: 0.1em; border-top: 1px solid rgba(0,0,0,0.07); }
 
         @media (max-width: 900px) {
           h1 { font-size: 36px; } h2 { font-size: 28px; }
