@@ -22,7 +22,8 @@ export default function Home() {
     const clientMap = {
       'LIVERY2026': '/clients/liverylive',
       'NIKE': '/clients/nike',
-      'ADIDAS': '/clients/adidas'
+      'ADIDAS': '/clients/adidas',
+      'TWA2026': '/clients/thrivingwithaddiction',
     };
     if (clientMap[code]) {
       router.push(clientMap[code]);
