@@ -212,7 +212,7 @@ export default function LiveryLive() {
           <div className="inner">
             <div className="eyebrow teal">// PREPARED_EXCLUSIVELY_FOR · MARCH 2026</div>
             <h1>Livery <span className="hl-teal">Live.</span></h1>
-            <p className="hero-sub">A content and growth strategy to get Livery Live in front of yard owners across the UK and beyond.</p>
+            <p className="hero-sub">More yards. More sign-ups. Built around your real users.</p>
             <div className="hero-tags">
               <span className="htag">LearnLab Studio</span>
               <span className="htag">Confidential</span>
