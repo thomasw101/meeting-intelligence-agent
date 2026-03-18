@@ -13,6 +13,7 @@ export default function ThrivingWithAddiction() {
   const [expandedDeliverable, setExpandedDeliverable] = useState(null);
   const [expandedReason, setExpandedReason] = useState(null);
   const [fileName, setFileName] = useState('');
+  const [dragOver, setDragOver] = useState(false);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -213,7 +214,25 @@ export default function ThrivingWithAddiction() {
             <h2 className="fade-up">Paste a transcript.<br /><span className="hl">Get your best clips instantly.</span></h2>
             <p className="lead fade-up">Drop in any episode transcript and the tool identifies the five most powerful moments to cut as short-form content — exact timestamps, the actual words said, a suggested title and a caption hook ready to use.</p>
 
-            <div className="tool-card fade-up">
+            <div
+              className={`tool-card fade-up ${dragOver ? 'tool-card-drag' : ''}`}
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={e => {
+                e.preventDefault();
+                setDragOver(false);
+                const file = e.dataTransfer.files[0];
+                if (file) {
+                  setFileName(file.name);
+                  const reader = new FileReader();
+                  reader.onload = ev => {
+                    const raw = ev.target.result;
+                    setTranscript(parseFileContent(raw, file.name));
+                  };
+                  reader.readAsText(file);
+                }
+              }}
+            >
               <div className="tool-top-row">
                 <div className="tool-label">Episode Transcript</div>
                 <div className="upload-area">
@@ -232,7 +251,7 @@ export default function ThrivingWithAddiction() {
               </div>
               <textarea
                 className="transcript-input"
-                placeholder="Paste your full episode transcript here, or upload a file above. Works with .txt, .csv, .srt and most text formats..."
+                placeholder="Paste your full episode transcript here, drag and drop a file, or use the upload button. Works with .txt, .csv, .srt and most text formats..."
                 value={transcript}
                 onChange={e => { setTranscript(e.target.value); setFileName(''); }}
                 rows={12}
@@ -379,6 +398,19 @@ export default function ThrivingWithAddiction() {
                   <p>Every clip drives people to the full episode. Every full episode drives people to Thriving with Addiction.</p>
                   {expandedDeliverable === 'book' && (
                     <p className="side-card-detail">Someone finds a 45 second clip on Instagram, watches it, follows the account, listens to three full episodes, and buys the book. That chain starts with a single well-cut clip. The content becomes a discovery engine — running continuously, compounding over time.</p>
+                  )}
+                </div>
+                <div
+                  className={`side-card side-card-flywheel fade-up ${expandedDeliverable === 'flywheel' ? 'side-card-open' : ''}`}
+                  onClick={() => setExpandedDeliverable(expandedDeliverable === 'flywheel' ? null : 'flywheel')}
+                >
+                  <div className="side-card-header">
+                    <div className="side-card-label side-card-label-orange">The Flywheel Effect</div>
+                    <div className="pkg-chevron">{expandedDeliverable === 'flywheel' ? '−' : '+'}</div>
+                  </div>
+                  <p>More content means more eyeballs. More eyeballs means a bigger platform. A bigger platform attracts bigger guests — and bigger guests bring their audiences with them.</p>
+                  {expandedDeliverable === 'flywheel' && (
+                    <p className="side-card-detail">This is how shows go from a few thousand listeners to tens of thousands without running ads. The content does the work — it circulates, gets shared, surfaces in search, lands in front of people who have never heard of you. Each episode compounds on the last. The earlier the flywheel starts spinning, the harder it becomes to stop.</p>
                   )}
                 </div>
               </div>
@@ -581,7 +613,7 @@ export default function ThrivingWithAddiction() {
           box-shadow: 0 1px 6px rgba(0,0,0,0.04); overflow: hidden;
         }
         .clip-card:hover { border-color: rgba(74,124,126,0.35); box-shadow: 0 6px 20px rgba(0,0,0,0.07); transform: translateY(-1px); }
-        .clip-expanded { border-color: rgba(74,124,126,0.4); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+        .clip-expanded { border-color: rgba(255,107,53,0.35); box-shadow: 0 8px 24px rgba(255,107,53,0.08); background: rgba(255,107,53,0.02); }
         .clip-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 22px; gap: 16px; }
         .clip-left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
         .clip-num { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #4A7C7E; letter-spacing: 0.2em; flex-shrink: 0; }
@@ -650,7 +682,7 @@ export default function ThrivingWithAddiction() {
           padding: 12px 14px; cursor: pointer; transition: all 0.2s;
         }
         .pkg-item:hover { background: rgba(74,124,126,0.04); border-color: rgba(74,124,126,0.18); }
-        .pkg-item-expanded { background: rgba(74,124,126,0.05); border-color: rgba(74,124,126,0.25); }
+        .pkg-item-expanded { background: rgba(255,107,53,0.04); border-color: rgba(255,107,53,0.3); }
         .pkg-item-header { display: flex; gap: 12px; align-items: flex-start; }
         .pkg-dot { width: 6px; height: 6px; border-radius: 50%; background: #4A7C7E; flex-shrink: 0; margin-top: 7px; }
         .pkg-item-text { flex: 1; }
@@ -674,13 +706,17 @@ export default function ThrivingWithAddiction() {
           box-shadow: 0 1px 8px rgba(0,0,0,0.03);
         }
         .side-card:hover { border-color: rgba(74,124,126,0.3); box-shadow: 0 6px 20px rgba(0,0,0,0.07); transform: translateY(-2px); }
-        .side-card-open { border-color: rgba(74,124,126,0.35); background: rgba(74,124,126,0.03); }
+        .side-card-open { border-color: rgba(255,107,53,0.4); background: rgba(255,107,53,0.04); box-shadow: 0 6px 20px rgba(255,107,53,0.08); }
         .side-card-teal { border-color: rgba(74,124,126,0.18); }
         .side-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .side-card-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #4A7C7E; }
         .side-card p { color: rgba(26,42,46,0.55); font-size: 13px; line-height: 1.65; margin: 0 0 10px; }
         .side-card p:last-child { margin-bottom: 0; }
         .side-card-detail { padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.06); margin-top: 4px; }
+        .side-card-flywheel { border-color: rgba(255,107,53,0.2); background: rgba(255,107,53,0.02); }
+        .side-card-flywheel:hover { border-color: rgba(255,107,53,0.4); box-shadow: 0 6px 20px rgba(255,107,53,0.1); }
+        .side-card-label-orange { color: #C05020; }
+        .tool-card-drag { border-color: rgba(74,124,126,0.5) !important; background: rgba(74,124,126,0.03); box-shadow: 0 4px 24px rgba(74,124,126,0.15) !important; }
 
         .reasons-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
         .reason-card {
