@@ -256,6 +256,9 @@ export default function ThrivingWithAddiction() {
                 onChange={e => { setTranscript(e.target.value); setFileName(''); }}
                 rows={12}
               />
+              <div className="timecode-note">
+                For accurate timestamps, upload a .csv or .txt file exported from YouTube or your transcription tool. Plain pasted text will still find the right moments but won't have exact timecodes.
+              </div>
               <div className="tool-footer">
                 <span className="char-count">
                   {transcript.length > 0 ? `${transcript.length.toLocaleString()} characters` : 'No transcript yet'}
@@ -579,6 +582,12 @@ export default function ThrivingWithAddiction() {
         .transcript-input:focus { border-color: #4A7C7E; }
         .transcript-input::placeholder { color: rgba(0,0,0,0.22); }
         .tool-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; gap: 16px; }
+        .timecode-note {
+          font-family: 'JetBrains Mono', monospace; font-size: 11px;
+          color: rgba(0,0,0,0.32); line-height: 1.5; margin-top: 12px;
+          padding: 10px 14px; background: rgba(255,107,53,0.05);
+          border: 1px solid rgba(255,107,53,0.18); border-radius: 8px;
+        }
         .char-count { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: rgba(0,0,0,0.28); letter-spacing: 0.06em; }
         .run-btn {
           padding: 14px 32px; background: #2C4A52; color: #fff; border: none;
