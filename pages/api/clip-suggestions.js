@@ -1,35 +1,52 @@
-function cleanTranscript(raw) {
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+
+// Handles Premiere Pro CSV: "Speaker","HH:MM:SS:FF","HH:MM:SS:FF","Text"
+// Also handles plain .txt transcripts passed through as-is
+function parseCSVToTimedTranscript(raw) {
   const lines = raw.split('\n');
-  const cleaned = [];
-  let pendingTimestamp = null;
+  const result = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
 
-    const timestampOnly = /^[\[\(]?\d{1,2}:\d{2}(:\d{2})?(,\d+)?[\]\)]?\s*$/.test(line);
-    if (timestampOnly) {
-      pendingTimestamp = line.replace(/[\[\]\(\)]/g, '').split(',')[0].trim();
-      continue;
+    // Parse quoted CSV fields
+    const fields = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < trimmed.length; i++) {
+      const ch = trimmed[i];
+      if (ch === '"') { inQuotes = !inQuotes; }
+      else if (ch === ',' && !inQuotes) { fields.push(current.trim()); current = ''; }
+      else { current += ch; }
+    }
+    fields.push(current.trim());
+
+    // Need at least 4 fields
+    if (fields.length < 4) continue;
+
+    const startRaw = fields[1];
+    const text     = fields[3];
+
+    // Skip header row
+    if (!text || startRaw.toLowerCase() === 'start time' || text.toLowerCase() === 'text') continue;
+    // Skip bare speaker labels
+    if (!text || text.trim().length < 3) continue;
+
+    // Convert HH:MM:SS:FF → M:SS (drop frames, drop zero hours)
+    const parts = startRaw.split(':');
+    let formatted = '—';
+    if (parts.length >= 3) {
+      const h = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      const s = parts[2].padStart(2, '0');
+      formatted = h > 0 ? `${h}:${String(m).padStart(2,'0')}:${s}` : `${m}:${s}`;
     }
 
-    const bareLabel = /^(Unknown|Speaker\s*\d*|Host|Guest|Interviewer|Interviewee|[A-Z][a-z]+):?\s*$/.test(line);
-    if (bareLabel) continue;
-
-    if (pendingTimestamp) {
-      cleaned.push(`[${pendingTimestamp}] ${line}`);
-      pendingTimestamp = null;
-    } else {
-      const inlineTs = line.match(/^(\d{1,2}:\d{2}(:\d{2})?)\s+(.*)/);
-      if (inlineTs) {
-        cleaned.push(`[${inlineTs[1]}] ${inlineTs[3]}`);
-      } else {
-        cleaned.push(line);
-      }
-    }
+    result.push(`[${formatted}] ${text}`);
   }
 
-  return cleaned.join('\n');
+  return result.join('\n');
 }
 
 export default async function handler(req, res) {
@@ -37,57 +54,60 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { transcript } = req.body;
+  const { transcript, isCSV = false } = req.body;
 
   if (!transcript || transcript.trim().length < 100) {
     return res.status(400).json({ error: 'Transcript too short or missing' });
   }
 
-  const cleaned = cleanTranscript(transcript);
+  // If the client signals it's a raw CSV, parse it server-side as a fallback
+  // In practice the client page parses before sending, so this is a safety net
+  const processed = transcript.slice(0, 90000);
+
+  const hasTimestamps = /\[\d+:\d+\]/.test(processed);
 
   const prompt = `You are a podcast content strategist specialising in short-form social media clips.
 
 Analyse this podcast transcript and identify exactly 5 of the most powerful, emotionally engaging moments that would perform well as short-form clips on Instagram Reels, YouTube Shorts, and TikTok.
 
+${hasTimestamps
+  ? 'The transcript contains inline timestamps in [M:SS] format. Use these EXACT timestamps for start_time and end_time — copy them verbatim from the transcript.'
+  : 'This transcript has no timestamps. Use descriptive position references like "early in episode", "around halfway", "near the end" for start_time and end_time.'
+}
+
 For each clip return:
-- start_time: timestamp where the clip begins — use the inline [MM:SS] timestamps from the transcript exactly. If no timestamps exist use "—"
-- end_time: timestamp where the clip ends
+- start_time: ${hasTimestamps ? 'exact [M:SS] timestamp from the transcript where this moment begins — copy it exactly' : 'descriptive position reference'}
+- end_time: ${hasTimestamps ? 'exact [M:SS] timestamp where this moment ends' : 'descriptive position reference'}
 - title: a punchy, hook-driven title for the clip (max 10 words)
 - hook: the opening caption line (max 20 words, no hashtags)
 - reason: one sentence explaining why this moment will perform well
-- transcript_excerpt: copy the exact spoken words from this moment verbatim — enough to cover roughly 30 to 60 seconds of speech
+- transcript_excerpt: the exact spoken words from this moment — maximum 60 words
 
 Focus on: personal revelations, surprising ironies, emotional turning points, raw honesty, counterintuitive insights.
 
 Respond ONLY with a valid JSON array of exactly 5 objects. Start with [ and end with ]. No markdown, no backticks, no preamble.
 
-Here is the transcript:
-
-${cleaned.slice(0, 90000)}`;
+TRANSCRIPT:
+${processed}`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(`${GEMINI_URL}?key=${process.env.GEMINI_API_KEY}`, {
       method: 'POST',
-      headers: {
-        'Content-Type':      'application/json',
-        'x-api-key':         process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model:      'claude-haiku-4-5-20251001',
-        max_tokens: 4096,
-        messages: [{ role: 'user', content: prompt }],
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
       }),
     });
 
     if (!response.ok) {
       const err = await response.text();
-      console.error('Anthropic API error:', err);
+      console.error('Gemini API error:', err);
       return res.status(500).json({ error: 'API request failed — please try again' });
     }
 
     const data = await response.json();
-    const raw  = data?.content?.[0]?.text || '';
+    const raw  = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     if (!raw) {
       return res.status(500).json({ error: 'No response from AI — please try again' });
@@ -100,7 +120,7 @@ ${cleaned.slice(0, 90000)}`;
     }
 
     const clips = JSON.parse(match[0]);
-    return res.status(200).json({ clips });
+    return res.status(200).json({ clips, hasTimestamps });
 
   } catch (err) {
     console.error('Error:', err.message);
