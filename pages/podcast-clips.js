@@ -19,6 +19,7 @@ export default function PodcastClips() {
   const [dragOver, setDragOver]             = useState(false);
   const [loading, setLoading]               = useState(false);
   const [clips, setClips]                   = useState([]);
+  const [hasTimestamps, setHasTimestamps]   = useState(true);
   const [previousTitles, setPreviousTitles] = useState([]);
   const [error, setError]                   = useState('');
   const [expandedClip, setExpandedClip]     = useState(null);
@@ -80,29 +81,13 @@ export default function PodcastClips() {
     return () => { window.removeEventListener('resize', resize); cancelAnimationFrame(animId); };
   }, [mounted]);
 
-  // ── File parsing ──
-  const parseFileContent = (text, name) => {
-    if (name.endsWith('.csv')) {
-      return text
-        .split('\n')
-        .map(row => {
-          const cols = row.split(',');
-          return cols.slice(3).join(' ').replace(/^"|"$/g, '').trim();
-        })
-        .filter(Boolean)
-        .join('\n');
-    }
-    return text;
-  };
-
+  // ── File upload — send raw content to server, no client-side parsing ──
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setFileName(file.name);
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      setTranscript(parseFileContent(ev.target.result, file.name));
-    };
+    reader.onload = (ev) => { setTranscript(ev.target.result); };
     reader.readAsText(file);
   };
 
@@ -113,9 +98,7 @@ export default function PodcastClips() {
     if (!file) return;
     setFileName(file.name);
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      setTranscript(parseFileContent(ev.target.result, file.name));
-    };
+    reader.onload = (ev) => { setTranscript(ev.target.result); };
     reader.readAsText(file);
   };
 
@@ -142,6 +125,7 @@ export default function PodcastClips() {
           clipStyle,
           context: context.trim(),
           previousTitles: findMore ? previousTitles : [],
+          filename: fileName,
         }),
       });
       const data = await res.json();
@@ -149,6 +133,7 @@ export default function PodcastClips() {
 
       const newClips = data.clips || [];
       setClips(newClips);
+      setHasTimestamps(data.hasTimestamps !== false);
       setExpandedClip(0);
       setPreviousTitles(prev => [...prev, ...newClips.map(c => c.title)]);
 
@@ -171,7 +156,7 @@ export default function PodcastClips() {
   const reset = () => {
     setTranscript(''); setFileName(''); setContext('');
     setClips([]); setError(''); setPreviousTitles([]);
-    setExpandedClip(null); setClipStyle('viral');
+    setExpandedClip(null); setClipStyle('viral'); setHasTimestamps(true);
   };
 
   if (!mounted) return null;
@@ -280,8 +265,8 @@ export default function PodcastClips() {
                 />
               </div>
               <div className="timestamp-note">
-                // For accurate timestamps, upload a .csv or .txt file exported from YouTube or your transcription tool.
-                Plain pasted text will still find the right moments but will not have exact timecodes.
+                // For accurate timestamps, upload a .csv or .txt file exported from Premiere Pro or your transcription tool.
+                Plain pasted text will still find the right moments with best-estimate timings.
               </div>
             </div>
 
@@ -329,6 +314,13 @@ export default function PodcastClips() {
               </div>
               <button className="btn-restart" onClick={reset}>↺ New Transcript</button>
             </div>
+
+            {/* No timestamps note */}
+            {!hasTimestamps && (
+              <div className="no-ts-note">
+                // No timestamps detected — timings are best estimates. Upload a .csv or .txt from Premiere Pro for exact timecodes.
+              </div>
+            )}
 
             {/* Clip cards */}
             <div className="clips-list">
@@ -560,6 +552,13 @@ export default function PodcastClips() {
           cursor: pointer; letter-spacing: 0.1em; transition: all 0.2s;
         }
         .btn-restart:hover { color: var(--warm); border-color: rgba(255,107,53,0.3); }
+
+        .no-ts-note {
+          font-family: 'JetBrains Mono'; font-size: 10px; letter-spacing: 0.07em;
+          color: rgba(125,249,255,0.4); line-height: 1.65;
+          background: rgba(125,249,255,0.03); border: 1px solid rgba(125,249,255,0.09);
+          border-radius: 8px; padding: 10px 14px; margin-bottom: 16px;
+        }
 
         /* ── Clip cards ── */
         .clips-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
