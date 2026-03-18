@@ -3,18 +3,18 @@ import { useRouter } from 'next/router';
 
 export default function ThrivingWithAddiction() {
   const router = useRouter();
-  const [mounted, setMounted]                   = useState(false);
-  const [transcript, setTranscript]             = useState('');
-  const [loading, setLoading]                   = useState(false);
-  const [clips, setClips]                       = useState([]);
-  const [hasTimestamps, setHasTimestamps]       = useState(true);
-  const [error, setError]                       = useState('');
-  const [copied, setCopied]                     = useState(null);
-  const [expandedClip, setExpandedClip]         = useState(null);
+  const [mounted, setMounted]                         = useState(false);
+  const [transcript, setTranscript]                   = useState('');
+  const [loading, setLoading]                         = useState(false);
+  const [clips, setClips]                             = useState([]);
+  const [hasTimestamps, setHasTimestamps]             = useState(true);
+  const [error, setError]                             = useState('');
+  const [copied, setCopied]                           = useState(null);
+  const [expandedClip, setExpandedClip]               = useState(null);
   const [expandedDeliverable, setExpandedDeliverable] = useState(null);
-  const [expandedReason, setExpandedReason]     = useState(null);
-  const [fileName, setFileName]                 = useState('');
-  const [dragOver, setDragOver]                 = useState(false);
+  const [expandedReason, setExpandedReason]           = useState(null);
+  const [fileName, setFileName]                       = useState('');
+  const [dragOver, setDragOver]                       = useState(false);
   const canvasRef    = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -63,60 +63,22 @@ export default function ThrivingWithAddiction() {
   useEffect(() => {
     if (!mounted) return;
     const observer = new IntersectionObserver(
-      entries => entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } }),
+      entries => entries.forEach(e => {
+        if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); }
+      }),
       { threshold: 0.08, rootMargin: '0px 0px -30px 0px' }
     );
     document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
     return () => observer.disconnect();
   }, [mounted, clips, expandedClip, expandedDeliverable, expandedReason]);
 
-  // ── Premiere Pro CSV parser: "Speaker","HH:MM:SS:FF","HH:MM:SS:FF","Text"
-  const parseCSV = (raw) => {
-    const lines = raw.split('\n');
-    const result = [];
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      const fields = [];
-      let current = '';
-      let inQuotes = false;
-      for (let i = 0; i < trimmed.length; i++) {
-        const ch = trimmed[i];
-        if (ch === '"') { inQuotes = !inQuotes; }
-        else if (ch === ',' && !inQuotes) { fields.push(current.trim()); current = ''; }
-        else { current += ch; }
-      }
-      fields.push(current.trim());
-      if (fields.length < 4) continue;
-      const startRaw = fields[1];
-      const text     = fields[3];
-      if (!text || startRaw.toLowerCase() === 'start time' || text.toLowerCase() === 'text') continue;
-      if (text.trim().length < 3) continue;
-      // HH:MM:SS:FF → M:SS
-      const parts = startRaw.split(':');
-      let formatted = '—';
-      if (parts.length >= 3) {
-        const h = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10);
-        const s = parts[2].padStart(2, '0');
-        formatted = h > 0 ? `${h}:${String(m).padStart(2,'0')}:${s}` : `${m}:${s}`;
-      }
-      result.push(`[${formatted}] ${text}`);
-    }
-    return result.join('\n');
-  };
-
-  const parseFileContent = (text, name) => {
-    if (name.toLowerCase().endsWith('.csv')) return parseCSV(text);
-    return text;
-  };
-
+  // Just read the file as raw text — all parsing happens server-side
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setFileName(file.name);
     const reader = new FileReader();
-    reader.onload = (ev) => { setTranscript(parseFileContent(ev.target.result, file.name)); };
+    reader.onload = (ev) => { setTranscript(ev.target.result); };
     reader.readAsText(file);
   };
 
@@ -126,7 +88,7 @@ export default function ThrivingWithAddiction() {
     if (!file) return;
     setFileName(file.name);
     const reader = new FileReader();
-    reader.onload = (ev) => { setTranscript(parseFileContent(ev.target.result, file.name)); };
+    reader.onload = (ev) => { setTranscript(ev.target.result); };
     reader.readAsText(file);
   };
 
@@ -140,7 +102,7 @@ export default function ThrivingWithAddiction() {
       const res = await fetch('/api/clip-suggestions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript }),
+        body: JSON.stringify({ transcript, filename: fileName }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Something went wrong');
@@ -154,8 +116,16 @@ export default function ThrivingWithAddiction() {
     }
   };
 
-  const copy = (text, id) => { navigator.clipboard.writeText(text); setCopied(id); setTimeout(() => setCopied(null), 2000); };
-  const scrollTo = (id) => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  const copy = (text, id) => {
+    navigator.clipboard.writeText(text);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const scrollTo = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   if (!mounted) return null;
 
@@ -242,13 +212,13 @@ export default function ThrivingWithAddiction() {
               </div>
               <textarea
                 className="transcript-input"
-                placeholder="Paste your full episode transcript here, or drag and drop / upload a file..."
+                placeholder="Paste your full episode transcript here, or drag and drop / upload a file. Works with .csv, .txt, .srt and plain paste..."
                 value={transcript}
                 onChange={e => { setTranscript(e.target.value); setFileName(''); }}
                 rows={12}
               />
               <div className="timecode-note">
-                For accurate timestamps, upload a .csv file exported from Premiere Pro or your transcription tool. Plain pasted text will still find the right moments but won't have exact timecodes.
+                Upload a .csv or .txt file from Premiere Pro or your transcription tool for exact timestamps. Plain pasted text will still find the right moments with best-estimate timings.
               </div>
               <div className="tool-footer">
                 <button className={`run-btn ${loading ? 'loading' : ''}`} onClick={handleSubmit} disabled={loading}>
@@ -268,8 +238,8 @@ export default function ThrivingWithAddiction() {
             {clips.length > 0 && (
               <>
                 {!hasTimestamps && (
-                  <div className="no-timestamp-note">
-                    // No timestamps detected — upload a .csv from Premiere Pro for exact timecodes
+                  <div className="no-ts-note">
+                    // No timestamps found — timings are best estimates. Upload a .csv or .txt from Premiere Pro for exact timecodes.
                   </div>
                 )}
                 <div className="clips-list">
@@ -471,7 +441,7 @@ export default function ThrivingWithAddiction() {
         .run-btn:hover:not(:disabled) { background: #3a6070; box-shadow: 0 4px 16px rgba(44,74,82,0.3); }
         .run-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .error-msg { margin-top: 14px; padding: 12px 16px; background: rgba(180,60,60,0.06); border: 1px solid rgba(180,60,60,0.18); border-radius: 8px; color: #a03030; font-size: 13px; }
-        .no-timestamp-note { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; color: rgba(74,124,126,0.6); background: rgba(74,124,126,0.05); border: 1px solid rgba(74,124,126,0.15); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; }
+        .no-ts-note { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.08em; color: rgba(74,124,126,0.6); background: rgba(74,124,126,0.05); border: 1px solid rgba(74,124,126,0.15); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; line-height: 1.6; }
         .loading-state { text-align: center; padding: 48px 0; }
         .loading-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; }
         .loading-dots span { width: 8px; height: 8px; border-radius: 50%; background: #4A7C7E; animation: pulse 1.2s ease-in-out infinite; }
@@ -535,7 +505,7 @@ export default function ThrivingWithAddiction() {
         .side-card-open { border-color: rgba(255,107,53,0.4); background: rgba(255,107,53,0.04); box-shadow: 0 6px 20px rgba(255,107,53,0.08); }
         .side-card-teal { border-color: rgba(74,124,126,0.18); }
         .side-card-flywheel { border-color: rgba(255,107,53,0.2); background: rgba(255,107,53,0.02); }
-        .side-card-flywheel:hover { border-color: rgba(255,107,53,0.4); box-shadow: 0 6px 20px rgba(255,107,53,0.1); }
+        .side-card-flywheel:hover { border-color: rgba(255,107,53,0.4); }
         .side-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .side-card-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #4A7C7E; }
         .side-card-label-orange { color: #C05020; }
