@@ -35,15 +35,16 @@ export default function Dashboard() {
       link: '/iq-test',
       github: 'https://github.com/thomasw101/IQ-test'
     },
-    {
-      id: 'tool-4',
-      title: 'Coming Soon',
-      status: 'OFFLINE',
-      desc: 'Currently building. This module will be available in a future update.',
-      link: '#',
-      github: null
-    }
-  ];
+    
+      {
+  id: 'podcasts-clips',
+  title: 'Podcast Clip Finder',
+  status: 'ONLINE',
+  desc: 'Drop a transcript. Get your five best clips instantly. Viral, emotional, actionable and more.',
+  link: '/podcast-clips',
+  github: 'https://github.com/thomasw101/Podcast_clips'
+   },
+   ];
 
   if (!mounted) return null;
 
