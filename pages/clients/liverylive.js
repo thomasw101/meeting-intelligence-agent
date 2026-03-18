@@ -5,6 +5,7 @@ export default function LiveryLive() {
   const [copied, setCopied] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
   const [calendlyOpen, setCalendlyOpen] = useState(false);
+  const [navVisible, setNavVisible] = useState(false);
   const canvasRef = useRef(null);
 
   const [horses, setHorses] = useState(20);
@@ -20,49 +21,115 @@ export default function LiveryLive() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    let width, height, particles = [], animFrameId;
-    let mouse = { x: null, y: null };
-    const handleMouseMove = (e) => { mouse.x = e.clientX; mouse.y = e.clientY; };
-    const init = () => {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-      particles = [];
-      for (let i = 0; i < 140; i++) {
-        particles.push({ x: Math.random() * width, y: Math.random() * height, vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3, size: Math.random() * 2.5 + 1, color: Math.random() > 0.8 ? '#FF6B35' : (Math.random() > 0.5 ? '#0e9090' : '#ffffff'), opacity: Math.random() * 0.4 + 0.2 });
-      }
+    let animFrameId;
+    const particles = [];
+
+    // Size canvas to full page height, not viewport
+    const resizeCanvas = () => {
+      const wrapper = canvas.parentElement;
+      canvas.width = wrapper ? wrapper.offsetWidth : window.innerWidth;
+      canvas.height = wrapper ? wrapper.scrollHeight : document.body.scrollHeight;
     };
-    const animate = () => {
-      ctx.clearRect(0, 0, width, height);
-      particles.forEach(p => {
-        p.x += p.vx; p.y += p.vy;
-        if (mouse.x != null) {
-          let dx = p.x - mouse.x, dy = p.y - mouse.y, dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 150) { let force = (150 - dist) / 150; p.x += (dx / dist) * force * 5; p.y += (dy / dist) * force * 5; }
-        }
-        if (p.x < 0) p.x = width; if (p.x > width) p.x = 0;
-        if (p.y < 0) p.y = height; if (p.y > height) p.y = 0;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = p.color; ctx.globalAlpha = p.opacity; ctx.fill();
+
+    resizeCanvas();
+
+    // Mouse position relative to page (not viewport)
+    let mouse = { x: null, y: null };
+    const handleMouseMove = (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY + window.scrollY;
+    };
+
+    const handleScroll = () => {
+      setNavVisible(window.scrollY > 300);
+    };
+
+    // Distribute particles across full page height
+    const pageH = canvas.height;
+    const pageW = canvas.width;
+    for (let i = 0; i < 180; i++) {
+      particles.push({
+        x: Math.random() * pageW,
+        y: Math.random() * pageH,
+        vx: (Math.random() - 0.5) * 0.25,
+        vy: (Math.random() - 0.5) * 0.25,
+        size: Math.random() * 1.8 + 0.4,
+        color: Math.random() > 0.85 ? '#FF6B35' : (Math.random() > 0.5 ? '#0e9090' : '#ffffff'),
+        opacity: Math.random() * 0.18 + 0.05, // reduced opacity
       });
+    }
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const scrollY = window.scrollY;
+
+      particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Mouse repulsion — offset by scroll position
+        if (mouse.x != null) {
+          const dx = p.x - mouse.x;
+          const dy = p.y - (mouse.y);
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 120) {
+            const force = (120 - dist) / 120;
+            p.x += (dx / dist) * force * 3;
+            p.y += (dy / dist) * force * 3;
+          }
+        }
+
+        // Wrap edges
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.y > canvas.height) p.y = 0;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.opacity;
+        ctx.fill();
+      });
+
       ctx.globalAlpha = 1;
       animFrameId = requestAnimationFrame(animate);
     };
-    window.addEventListener('resize', init);
+
     window.addEventListener('mousemove', handleMouseMove);
-    init(); animate();
-    return () => { window.removeEventListener('resize', init); window.removeEventListener('mousemove', handleMouseMove); cancelAnimationFrame(animFrameId); };
+    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', resizeCanvas);
+    animate();
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', resizeCanvas);
+      cancelAnimationFrame(animFrameId);
+    };
   }, [mounted]);
 
   useEffect(() => {
     if (calendlyOpen) {
       const existing = document.getElementById('calendly-script');
-      if (!existing) { const script = document.createElement('script'); script.id = 'calendly-script'; script.src = 'https://assets.calendly.com/assets/external/widget.js'; script.async = true; document.head.appendChild(script); }
+      if (!existing) {
+        const script = document.createElement('script');
+        script.id = 'calendly-script';
+        script.src = 'https://assets.calendly.com/assets/external/widget.js';
+        script.async = true;
+        document.head.appendChild(script);
+      }
     }
   }, [calendlyOpen]);
 
   const sliderBg = (val, min, max) => {
     const pct = ((val - min) / (max - min)) * 100;
     return `linear-gradient(to right, #0e9090 0%, #0e9090 ${pct}%, rgba(255,255,255,0.12) ${pct}%, rgba(255,255,255,0.12) 100%)`;
+  };
+
+  const scrollTo = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const hoursSavedMonthly = Math.round(adminHours * 0.6 * 4.3);
@@ -124,11 +191,33 @@ export default function LiveryLive() {
     { icon: '🏆', title: 'Yard Spotlights', desc: 'A post series profiling yards using Livery Live. Gives users something to share and grows the brand organically.' },
   ];
 
+  const navItems = [
+    { label: 'The Proposal', id: 'sec-proposal' },
+    { label: 'The Package', id: 'sec-package' },
+    { label: 'ROI Tool', id: 'sec-roi' },
+    { label: 'Advisory', id: 'sec-advisory' },
+    { label: 'Book a Call', id: null, cta: true },
+  ];
+
   if (!mounted) return null;
 
   return (
     <div className="proposal-wrap">
+      {/* Canvas is INSIDE the wrapper — position absolute, scrolls with page */}
       <canvas ref={canvasRef} className="bg-canvas" />
+
+      {/* JUMP NAV */}
+      <div className={`jump-nav ${navVisible ? 'jump-nav-visible' : ''}`}>
+        {navItems.map((item, i) => (
+          <button
+            key={i}
+            className={`jump-item ${item.cta ? 'jump-cta' : ''}`}
+            onClick={() => item.cta ? setCalendlyOpen(true) : scrollTo(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
 
       {calendlyOpen && (
         <div className="cal-overlay" onClick={e => { if (e.target.classList.contains('cal-overlay')) setCalendlyOpen(false); }}>
@@ -142,7 +231,7 @@ export default function LiveryLive() {
       <div className="proposal">
 
         {/* HERO */}
-        <section className="hero">
+        <section id="sec-proposal" className="hero">
           <div className="inner">
             <div className="eyebrow teal">// PREPARED_EXCLUSIVELY_FOR · MARCH 2026</div>
             <h1>Livery <span className="hl-teal">Live.</span></h1>
@@ -197,7 +286,7 @@ export default function LiveryLive() {
         </section>
 
         {/* PACKAGE */}
-        <section className="section">
+        <section id="sec-package" className="section">
           <div className="inner">
             <div className="eyebrow teal">// THE_PACKAGE</div>
             <h2>The Field.<br /><span className="hl-orange">£2,499<span style={{fontSize:'22px',fontWeight:400}}>/mo</span></span></h2>
@@ -214,7 +303,7 @@ export default function LiveryLive() {
                     { title: 'Days Roll Over', desc: "If a month doesn't work logistically, the day banks and we double up the following month. Nothing is wasted." },
                     { title: 'Monthly Analytics Review', desc: "Every month we look at what's working — reach, conversions, what to double down on. You always know where things stand." },
                     { title: 'Growth Strategy Session', desc: 'A monthly call to plan the next filming day — which yards to visit, which stories to tell, which features to push.' },
-                    { title: 'Travel Covered', desc: 'I cover my own travel expenses across the UK. Wherever the best stories are, I\'ll be there.' },
+                    { title: 'Travel Covered', desc: "I cover my own travel expenses across the UK. Wherever the best stories are, I'll be there." },
                   ].map((item, i) => (
                     <div key={i} className="pkg-item">
                       <div className="pkg-dot" />
@@ -226,13 +315,14 @@ export default function LiveryLive() {
               </div>
 
               <div className="pkg-side">
-                <div className="side-card">
+                <div className="side-card hoverable">
                   <div className="eyebrow teal" style={{marginBottom:'10px'}}>// WHAT_WE_FILM</div>
                   <ul className="film-list">
                     {['Yard owner testimonials','Founder and team interviews','The app being used on real phones','Cinematic b-roll of yard life','Feature walkthroughs and demos','Seasonal content and timely hooks','Problem-led narrative pieces'].map((item, i) => <li key={i}>{item}</li>)}
                   </ul>
                 </div>
-                <div className="side-card side-orange">
+
+                <div className="side-card side-orange hoverable">
                   <div className="eyebrow orange" style={{marginBottom:'10px'}}>// LOGISTICS_&_INSURANCE</div>
                   <ul className="film-list">
                     {[
@@ -243,14 +333,27 @@ export default function LiveryLive() {
                       'Flexible scheduling — days roll over if unused',
                       'Backup equipment carried on every shoot',
                       'Contracts and delivery schedules provided upfront',
-                      'Strategy doc and content calendar shared day one',
+                    ].map((item, i) => <li key={i}>{item}</li>)}
+                  </ul>
+                </div>
+
+                <div className="side-card side-teal hoverable">
+                  <div className="eyebrow teal" style={{marginBottom:'10px'}}>// WHY_THIS_AUDIENCE</div>
+                  <p style={{color:'rgba(255,255,255,0.5)', fontSize:'13px', lineHeight:'1.6', marginBottom:'14px'}}>Horse people are one of the most community-driven audiences in the UK. They trust peer recommendations above everything else — which is why authentic yard owner testimonials convert better than any ad.</p>
+                  <ul className="film-list">
+                    {[
+                      'Facebook & Instagram are their primary channels',
+                      'WhatsApp groups and forums drive word of mouth',
+                      'Real yard footage builds instant credibility',
+                      'Seasonal events create natural viral moments',
+                      'A tight-knit community that shares what works',
                     ].map((item, i) => <li key={i}>{item}</li>)}
                   </ul>
                 </div>
               </div>
             </div>
 
-            {/* ADDITIONAL CONTENT — continuation */}
+            {/* ADDITIONAL CONTENT */}
             <div className="additional-content">
               <div className="additional-divider">
                 <div className="additional-divider-line" />
@@ -334,7 +437,7 @@ export default function LiveryLive() {
         </section>
 
         {/* ROI */}
-        <section className="section section-dark roi-section">
+        <section id="sec-roi" className="section section-dark roi-section">
           <div className="inner">
             <div className="eyebrow teal">// GROWTH_TOOL</div>
             <h2>The ROI<br /><span className="hl-teal">Calculator.</span></h2>
@@ -354,12 +457,7 @@ export default function LiveryLive() {
                       <strong>{f.pre}{f.val}{f.suf}</strong>
                     </div>
                     {f.desc && <p className="roi-desc">{f.desc}</p>}
-                    <input
-                      type="range"
-                      min={f.min}
-                      max={f.max}
-                      step={f.step}
-                      value={f.val}
+                    <input type="range" min={f.min} max={f.max} step={f.step} value={f.val}
                       onChange={e => f.set(Number(e.target.value))}
                       className="roi-slider"
                       style={{ background: sliderBg(f.val, f.min, f.max) }}
@@ -404,7 +502,7 @@ export default function LiveryLive() {
         </section>
 
         {/* ADVISORY */}
-        <section className="section">
+        <section id="sec-advisory" className="section">
           <div className="inner">
             <div className="eyebrow teal">// BUSINESS_ADVISORY</div>
             <h2>Six things worth<br /><span className="hl-teal">looking at.</span></h2>
@@ -449,7 +547,7 @@ export default function LiveryLive() {
         </section>
 
         {/* CTA */}
-        <section className="section cta-section">
+        <section id="sec-cta" className="section cta-section">
           <div className="cta-inner">
             <div className="eyebrow teal">// NEXT_STEPS</div>
             <h2>Ready when<br /><span className="hl-orange">you are.</span></h2>
@@ -473,9 +571,64 @@ export default function LiveryLive() {
       `}</style>
 
       <style jsx>{`
-        .proposal-wrap { position: relative; min-height: 100vh; background: linear-gradient(160deg, #0a1628 0%, #0d1f35 40%, #0a1e1e 100%); }
-        .bg-canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+        /* Canvas now position:absolute so it scrolls WITH the page */
+        .proposal-wrap {
+          position: relative;
+          min-height: 100vh;
+          background: linear-gradient(160deg, #0a1628 0%, #0d1f35 40%, #0a1e1e 100%);
+        }
+        .bg-canvas {
+          position: absolute;
+          top: 0; left: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+          z-index: 0;
+        }
         .proposal { position: relative; z-index: 1; overflow-x: hidden; }
+
+        /* JUMP NAV */
+        .jump-nav {
+          position: fixed;
+          top: 24px;
+          left: 50%;
+          transform: translateX(-50%) translateY(-80px);
+          z-index: 200;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          background: rgba(10,22,40,0.9);
+          backdrop-filter: blur(20px);
+          border: 1px solid rgba(14,144,144,0.25);
+          border-radius: 999px;
+          padding: 6px 8px;
+          transition: transform 0.4s cubic-bezier(0.22,1,0.36,1), opacity 0.4s ease;
+          opacity: 0;
+          pointer-events: none;
+        }
+        .jump-nav-visible {
+          transform: translateX(-50%) translateY(0);
+          opacity: 1;
+          pointer-events: all;
+        }
+        .jump-item {
+          padding: 8px 16px;
+          background: transparent;
+          border: none;
+          color: rgba(255,255,255,0.45);
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 10px;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          cursor: pointer;
+          border-radius: 999px;
+          transition: all 0.2s;
+          white-space: nowrap;
+        }
+        .jump-item:hover { color: #0e9090; background: rgba(14,144,144,0.1); }
+        .jump-cta { background: #f97316 !important; color: #fff !important; font-weight: 700; }
+        .jump-cta:hover { box-shadow: 0 0 16px rgba(249,115,22,0.5); background: #ea6c10 !important; }
+
         .eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.2em; margin-bottom: 16px; display: block; text-transform: uppercase; }
         .teal { color: #0e9090; }
         .orange { color: #f97316; }
@@ -493,17 +646,19 @@ export default function LiveryLive() {
         .hero-sub { color: rgba(255,255,255,0.55); font-size: 20px; line-height: 1.6; max-width: 580px; margin-bottom: 36px; }
         .hero-tags { display: flex; gap: 10px; flex-wrap: wrap; }
         .htag { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; padding: 6px 14px; border: 1px solid rgba(14,144,144,0.3); border-radius: 6px; color: rgba(255,255,255,0.35); }
+
         .three-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
         .equal-cards { align-items: stretch; }
         .equal-cards .card, .equal-cards .adv-card { display: flex; flex-direction: column; }
         .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.2); border-radius: 20px; padding: 34px 28px; transition: 0.4s cubic-bezier(0.22,1,0.36,1); }
-        .card:hover { transform: translateY(-6px); border-color: rgba(14,144,144,0.5); background: rgba(14,144,144,0.06); }
+        .card:hover { transform: translateY(-6px); border-color: rgba(14,144,144,0.5); background: rgba(14,144,144,0.06); box-shadow: 0 12px 32px rgba(0,0,0,0.3); }
         .card-icon { font-size: 28px; margin-bottom: 16px; }
         .card p { color: rgba(255,255,255,0.5); font-size: 14px; line-height: 1.6; margin: 0; flex: 1; }
         .rm-mo { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #0e9090; letter-spacing: 0.2em; margin-bottom: 8px; }
         .rm-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 9px; flex: 1; }
         .rm-list li { color: rgba(255,255,255,0.5); font-size: 13px; line-height: 1.5; padding-left: 14px; position: relative; }
         .rm-list li::before { content: '·'; color: #0e9090; position: absolute; left: 0; font-size: 16px; line-height: 1.2; }
+
         .flywheel { display: flex; align-items: stretch; overflow-x: auto; padding-bottom: 8px; }
         .fw-wrap { display: flex; align-items: stretch; flex-shrink: 0; }
         .fw-step { background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.2); border-radius: 18px; padding: 26px 22px; width: 175px; transition: 0.3s; flex-shrink: 0; display: flex; flex-direction: column; }
@@ -513,6 +668,7 @@ export default function LiveryLive() {
         .fw-n { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #0e9090; letter-spacing: 0.2em; margin-bottom: 10px; }
         .fw-label { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 8px; }
         .fw-desc { font-size: 12px; color: rgba(255,255,255,0.45); line-height: 1.5; flex: 1; }
+
         .pkg-grid { display: grid; grid-template-columns: 1fr 360px; gap: 26px; align-items: start; }
         .pkg-main { background: rgba(255,255,255,0.04); border: 1px solid rgba(249,115,22,0.35); border-radius: 24px; padding: 46px; }
         .pkg-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #f97316; letter-spacing: 0.2em; margin-bottom: 30px; display: block; }
@@ -523,25 +679,32 @@ export default function LiveryLive() {
         .pkg-item span { color: rgba(255,255,255,0.5); font-size: 14px; line-height: 1.5; }
         .btn-orange { display: block; width: 100%; padding: 16px; background: #f97316; color: #fff; border: none; border-radius: 12px; font-weight: 800; cursor: pointer !important; text-transform: uppercase; letter-spacing: 0.06em; font-size: 12px; transition: 0.3s; text-align: center; box-sizing: border-box; }
         .btn-orange:hover { box-shadow: 0 0 28px rgba(249,115,22,0.5); transform: scale(1.02); }
+
         .pkg-side { display: flex; flex-direction: column; gap: 16px; }
-        .side-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.2); border-radius: 18px; padding: 24px; }
+        .side-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.2); border-radius: 18px; padding: 24px; transition: 0.4s cubic-bezier(0.22,1,0.36,1); }
+        .hoverable:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.3); }
         .side-card p { color: rgba(255,255,255,0.5); font-size: 14px; line-height: 1.6; margin: 0; }
         .side-orange { border-color: rgba(249,115,22,0.25); background: rgba(249,115,22,0.03); }
+        .side-orange.hoverable:hover { border-color: rgba(249,115,22,0.5); }
+        .side-teal { border-color: rgba(14,144,144,0.3); background: rgba(14,144,144,0.03); }
+        .side-teal.hoverable:hover { border-color: rgba(14,144,144,0.55); background: rgba(14,144,144,0.07); }
         .film-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 9px; }
         .film-list li { color: rgba(255,255,255,0.5); font-size: 13px; padding-left: 14px; position: relative; line-height: 1.5; }
         .film-list li::before { content: '·'; color: #0e9090; position: absolute; left: 0; font-size: 16px; line-height: 1.2; }
         .side-orange .film-list li::before { color: #f97316; }
+
         .additional-content { margin-top: 60px; }
         .additional-divider { display: flex; align-items: center; gap: 20px; margin-bottom: 28px; }
         .additional-divider-line { flex: 1; height: 1px; background: rgba(14,144,144,0.2); }
         .additional-divider-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #0e9090; letter-spacing: 0.18em; white-space: nowrap; }
         .additional-intro { color: rgba(255,255,255,0.45); font-size: 15px; line-height: 1.7; max-width: 700px; margin-bottom: 32px; }
         .content-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-        .content-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(14,144,144,0.15); border-radius: 16px; padding: 24px 20px; transition: 0.3s; }
-        .content-card:hover { transform: translateY(-4px); border-color: rgba(14,144,144,0.35); background: rgba(14,144,144,0.04); }
+        .content-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(14,144,144,0.15); border-radius: 16px; padding: 24px 20px; transition: 0.4s cubic-bezier(0.22,1,0.36,1); }
+        .content-card:hover { transform: translateY(-4px); border-color: rgba(14,144,144,0.4); background: rgba(14,144,144,0.05); box-shadow: 0 10px 28px rgba(0,0,0,0.3); }
         .content-icon { font-size: 24px; margin-bottom: 10px; }
         .content-card h4 { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 6px; }
         .content-card p { color: rgba(255,255,255,0.4); font-size: 12px; line-height: 1.5; margin: 0; }
+
         .carousel-demo { display: grid; grid-template-columns: auto 1fr; gap: 56px; align-items: center; }
         .phone-frame { width: 228px; height: 456px; background: #111827; border-radius: 34px; border: 2px solid rgba(255,255,255,0.1); overflow: hidden; box-shadow: 0 28px 56px rgba(0,0,0,0.7); flex-shrink: 0; }
         .phone-notch { width: 54px; height: 7px; background: rgba(255,255,255,0.08); border-radius: 4px; margin: 10px auto 0; }
@@ -565,6 +728,7 @@ export default function LiveryLive() {
         .slide-btn { padding: 7px 15px; background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.25); color: rgba(255,255,255,0.4); border-radius: 8px; font-size: 13px; cursor: pointer; transition: 0.2s; font-family: inherit; }
         .slide-btn:hover, .slide-btn-a { border-color: #0e9090; color: #0e9090; }
         .disclaimer { font-family: 'JetBrains Mono', monospace; font-size: 11px !important; color: rgba(255,255,255,0.18) !important; }
+
         .roi-widget { display: grid; grid-template-columns: 1fr 310px; gap: 28px; background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.2); border-radius: 24px; padding: 42px; margin-bottom: 32px; }
         .roi-field { margin-bottom: 24px; }
         .roi-fh { display: flex; justify-content: space-between; margin-bottom: 6px; }
@@ -574,7 +738,7 @@ export default function LiveryLive() {
         .roi-slider { width: 100%; height: 6px; -webkit-appearance: none; appearance: none; border-radius: 3px; outline: none; cursor: pointer; }
         .roi-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #0e9090; cursor: pointer; border: 3px solid #0a1628; box-shadow: 0 2px 8px rgba(14,144,144,0.5); transition: transform 0.2s; }
         .roi-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
-        .roi-slider::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #0e9090; cursor: pointer; border: 3px solid #0a1628; box-shadow: 0 2px 8px rgba(14,144,144,0.5); }
+        .roi-slider::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #0e9090; cursor: pointer; border: 3px solid #0a1628; }
         .roi-glance { margin-bottom: 16px; }
         .roi-glance-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.28); letter-spacing: 0.15em; margin-bottom: 14px; }
         .roi-row { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 13px; }
@@ -590,30 +754,37 @@ export default function LiveryLive() {
         .roi-roi-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.15em; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
         .roi-roi-num { font-size: 32px; font-weight: 700; color: #fff; line-height: 1; margin-bottom: 6px; }
         .roi-roi-sub { font-size: 12px; color: rgba(255,255,255,0.3); }
+
         .embed-box { background: rgba(0,0,0,0.3); border: 1px solid rgba(14,144,144,0.18); border-radius: 18px; overflow: hidden; }
         .embed-head { display: flex; justify-content: space-between; align-items: flex-start; padding: 26px 30px 18px; border-bottom: 1px solid rgba(255,255,255,0.05); gap: 20px; }
         .embed-head p { color: rgba(255,255,255,0.4); font-size: 14px; line-height: 1.5; margin: 10px 0 0; }
         .copy-btn { padding: 8px 18px; background: #0e9090; color: #fff; border: none; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer !important; transition: 0.2s; letter-spacing: 0.05em; white-space: nowrap; flex-shrink: 0; }
         .copy-btn:hover { box-shadow: 0 0 14px rgba(14,144,144,0.5); }
         .code-pre { margin: 0; padding: 22px 30px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: rgba(14,144,144,0.65); line-height: 1.6; white-space: pre-wrap; word-break: break-all; overflow-x: auto; }
+
         .adv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
         .adv-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(14,144,144,0.18); border-radius: 20px; padding: 32px 28px; transition: 0.3s; display: flex; flex-direction: column; }
-        .adv-card:hover { transform: translateY(-4px); border-color: rgba(14,144,144,0.4); }
+        .adv-card:hover { transform: translateY(-4px); border-color: rgba(14,144,144,0.4); box-shadow: 0 12px 32px rgba(0,0,0,0.3); }
         .adv-feat { border-color: rgba(249,115,22,0.35); background: rgba(249,115,22,0.04); }
+        .adv-feat:hover { border-color: rgba(249,115,22,0.6); }
         .adv-n { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #0e9090; letter-spacing: 0.2em; margin-bottom: 10px; }
         .adv-card p { color: rgba(255,255,255,0.5); font-size: 14px; line-height: 1.6; margin: 0 0 16px; flex: 1; }
         .adv-tag { display: inline-block; padding: 4px 12px; background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.3); color: #f97316; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; border-radius: 6px; align-self: flex-start; }
+
         .creds-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
         .creds-inner p { color: rgba(255,255,255,0.5); font-size: 15px; line-height: 1.7; margin-bottom: 14px; }
         .video-container { position: relative; padding-top: 56.25%; border-radius: 16px; overflow: hidden; border: 1px solid rgba(14,144,144,0.2); }
         .video-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.18); letter-spacing: 0.12em; text-align: center; margin-top: 12px; }
+
         .cta-section { text-align: center; background: linear-gradient(135deg, rgba(14,144,144,0.08), rgba(249,115,22,0.06)); border-top: 1px solid rgba(14,144,144,0.15); }
         .cta-inner { max-width: 580px; margin: 0 auto; }
         .cta-inner h2 { font-size: 50px; }
         .cta-inner p { color: rgba(255,255,255,0.5); font-size: 16px; line-height: 1.7; margin-bottom: 38px; }
         .btn-orange-lg { display: inline-block; padding: 20px 52px; background: #f97316; color: #fff; border: none; border-radius: 14px; font-weight: 800; text-decoration: none; text-transform: uppercase; letter-spacing: 0.08em; font-size: 15px; transition: 0.3s; cursor: pointer !important; }
         .btn-orange-lg:hover { box-shadow: 0 0 32px rgba(249,115,22,0.55); transform: scale(1.03); }
+
         .footer-note { text-align: center; padding: 34px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.1); letter-spacing: 0.1em; border-top: 1px solid rgba(14,144,144,0.1); }
+
         @media (max-width: 900px) {
           h1 { font-size: 50px; } h2 { font-size: 32px; }
           .three-grid { grid-template-columns: 1fr; }
@@ -624,7 +795,7 @@ export default function LiveryLive() {
           .section { padding: 60px 24px; }
           .hero { padding: 80px 24px 60px; }
           .cta-inner h2 { font-size: 36px; }
-          .additional-divider-label { font-size: 8px; }
+          .jump-nav { display: none; }
         }
       `}</style>
     </div>
