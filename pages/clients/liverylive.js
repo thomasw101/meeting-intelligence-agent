@@ -337,21 +337,7 @@ export default function LiveryLive() {
                   </ul>
                 </div>
 
-                <div className="side-card side-teal hoverable">
-                  <div className="eyebrow teal" style={{marginBottom:'10px'}}>// WHY_THIS_AUDIENCE</div>
-                  <p style={{color:'rgba(255,255,255,0.5)', fontSize:'13px', lineHeight:'1.6', marginBottom:'14px'}}>Horse people are one of the most community-driven audiences in the UK. They trust peer recommendations above everything else — which is why authentic yard owner testimonials convert better than any ad.</p>
-                  <ul className="film-list">
-                    {[
-                      'Facebook & Instagram are their primary channels',
-                      'WhatsApp groups and forums drive word of mouth',
-                      'Real yard footage builds instant credibility',
-                      'Seasonal events create natural viral moments',
-                      'A tight-knit community that shares what works',
-                    ].map((item, i) => <li key={i}>{item}</li>)}
-                  </ul>
-                </div>
-              </div>
-            </div>
+ 
 
             {/* ADDITIONAL CONTENT */}
             <div className="additional-content">
