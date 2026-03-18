@@ -237,7 +237,7 @@ export default function LiveryLive() {
         <section className="section section-dark">
           <div className="inner">
             <div className="eyebrow teal">// THE_STRATEGY</div>
-            <h2>One filming day.<br /><span className="hl-teal">Eight weeks of content.</span></h2>
+            <h2>One filming day.<br /><span className="hl-teal">20+ pieces of content. Every single month.</span></h2>
             <p className="lead">Every yard visit extracts maximum value. One serious day of filming produces enough material to keep Livery Live's channels active for two months.</p>
             <div className="flywheel">
               {[
