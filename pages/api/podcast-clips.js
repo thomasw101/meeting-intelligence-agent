@@ -60,7 +60,6 @@ export default async function handler(req, res) {
     : '';
 
   const contextBlock = context ? `\n\nAdditional context: ${context}` : '';
-
   const styleInstruction = STYLE_INSTRUCTIONS[clipStyle] || STYLE_INSTRUCTIONS.viral;
 
   const prompt = `You are an expert short-form content strategist specialising in podcast clips. Infer the podcast name, guest, topic and tone directly from the transcript.${contextBlock}
@@ -81,32 +80,33 @@ TRANSCRIPT:
 ${truncated}`;
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.4,
-            maxOutputTokens: 4096,
-          },
-        }),
-      }
-    );
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type':         'application/json',
+        'x-api-key':            process.env.ANTHROPIC_API_KEY,
+        'anthropic-version':    '2023-06-01',
+      },
+      body: JSON.stringify({
+        model:      'claude-haiku-4-5-20251001',
+        max_tokens: 4096,
+        messages: [
+          { role: 'user', content: prompt }
+        ],
+      }),
+    });
 
     if (!response.ok) {
       const err = await response.text();
-      console.error('Gemini API error:', err);
-      return res.status(502).json({ error: 'Gemini API request failed. Please try again.' });
+      console.error('Anthropic API error:', err);
+      return res.status(502).json({ error: 'API request failed. Please try again.' });
     }
 
     const data = await response.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const raw  = data?.content?.[0]?.text || '';
 
     if (!raw) {
-      return res.status(502).json({ error: 'No response from Gemini. Please try again.' });
+      return res.status(502).json({ error: 'No response from AI. Please try again.' });
     }
 
     const match = raw.match(/\[[\s\S]*\]/);
