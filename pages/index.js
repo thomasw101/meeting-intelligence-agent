@@ -24,6 +24,7 @@ export default function Home() {
       'NIKE': '/clients/nike',
       'ADIDAS': '/clients/adidas',
       'TWA2026': '/clients/thrivingwithaddiction',
+      'TRUST2026': '/clients/trustpayments',
     };
     if (clientMap[code]) {
       router.push(clientMap[code]);
